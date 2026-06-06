@@ -1,0 +1,45 @@
+---
+description: KentScan AI servis pipeline kuralları
+globs: ["*.py", "services/*.py"]
+alwaysApply: true
+---
+
+# KentScan AI Pipeline Rules
+
+## KVKK Zorunlu Kurallar (İHLAL → DİSKALİFİKASYON)
+
+- `KVKKFilter.anonymize()` her zaman model çalıştırılmadan ÖNCE çağrılır.
+- Yüz tespiti + Gaussian blur ZORUNLU.
+- Plaka anonimleştirme ZORUNLU.
+- Ham `image_bytes` hiçbir zaman diske veya veritabanına yazılmaz.
+- Anonymize edilmiş görüntü base64 olarak geçici yanıtta kullanılır, kalıcı depolanmaz.
+
+## HuggingFace Model Kullanımı
+
+- Model yüklemesi `__init__` içinde yapılır, her istek için yeniden yüklenmez.
+- Model başarısız yüklenirse graceful degradation: heuristic fallback devreye girer.
+- `trust_remote_code=True` sadece `projectsidewalk/rampnet-model` için kullanılır.
+- Model inference torch.no_grad() context içinde yapılır.
+
+## Skor Hesaplama
+
+- Skor her zaman 0-100 aralığında olur (`max(0, min(100, score))`).
+- Severity ağırlıkları: critical=-30, high=-20, medium=-10, low=-5.
+- Skor 0 olsa bile boş `issues` listesi döndürülmez.
+
+## Demo Modu
+
+- `GOOGLE_STREET_VIEW_API_KEY` boşsa demo modu otomatik devreye girer.
+- Demo verisi deterministic olmalıdır (seed=koordinat bazlı random).
+- Demo modu production'da devre dışı bırakılır.
+
+## API Sözleşmesi
+
+- `/analyze` endpoint'i: `{"latitude": float, "longitude": float}` alır.
+- Yanıt: `{"accessibility_score": int, "issues": [...], "street_view_url": str, "anonymized_image_url": str}`
+- Hata durumunda: `{"error": "açıklama"}` + HTTP 200 (Go backend'in parse etmesi için).
+
+## Güvenlik
+
+- GSV API anahtarı sadece `.env` dosyasından okunur, koda gömülmez.
+- Log'lara koordinatlar dışında kişisel veri yazılmaz.

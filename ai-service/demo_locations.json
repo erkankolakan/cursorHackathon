@@ -1,0 +1,44 @@
+[
+  {
+    "district": "Kadıköy",
+    "city": "İstanbul",
+    "latitude": 40.9833,
+    "longitude": 29.0333,
+    "notes": "Merkez kaldırım — yüksek yaya trafiği"
+  },
+  {
+    "district": "Beşiktaş",
+    "city": "İstanbul",
+    "latitude": 41.0422,
+    "longitude": 29.0078,
+    "notes": "Vapur iskelesi çevresi"
+  },
+  {
+    "district": "Şişli",
+    "city": "İstanbul",
+    "latitude": 41.0602,
+    "longitude": 28.9878,
+    "notes": "Büyükdere Cad. — ticari alan"
+  },
+  {
+    "district": "Üsküdar",
+    "city": "İstanbul",
+    "latitude": 41.0231,
+    "longitude": 29.0152,
+    "notes": "Tarihi alan kaldırımları"
+  },
+  {
+    "district": "Fatih",
+    "city": "İstanbul",
+    "latitude": 41.0186,
+    "longitude": 28.9395,
+    "notes": "Tarihi yarımada — dar sokaklar"
+  },
+  {
+    "district": "Başakşehir",
+    "city": "İstanbul",
+    "latitude": 41.0865,
+    "longitude": 28.8017,
+    "notes": "Hackathon mekanı çevresi — yeni yapılaşma"
+  }
+]

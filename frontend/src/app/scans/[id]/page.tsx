@@ -124,6 +124,16 @@ export default function ScanDetailPage() {
             <span>Oluşturulma: {new Date(scan.created_at).toLocaleString("tr-TR")}</span>
             {scan.completed_at && <span>Tamamlanma: {new Date(scan.completed_at).toLocaleString("tr-TR")}</span>}
             <span>Durum: <span className="text-slate-300 font-medium">{scan.status}</span></span>
+            {scan.demo_mode && (
+              <span className="bg-yellow-950 text-yellow-400 border border-yellow-800 px-2 py-0.5 rounded-full font-bold">
+                ⚠ DEMO MOD — GSV API anahtarı yok
+              </span>
+            )}
+            {scan.models_used && scan.models_used.length > 0 && !scan.demo_mode && (
+              <span className="text-emerald-500">
+                🤖 AI: {scan.models_used.join(" + ")}
+              </span>
+            )}
           </div>
         </div>
 

@@ -80,11 +80,60 @@ class AnalyzeResponse(BaseModel):
     anonymized_image_url: str
     total_estimated_cost: Optional[int] = None
     error: Optional[str] = None
+    demo_mode: bool = False
+    models_used: list[str] = []
 
 
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "kentscan-ai", "version": "2.0.0"}
+
+
+@app.get("/ai-info")
+async def ai_info():
+    """Yüklenen modeller, pipeline ve KVKK uyum durumunu döndürür (demo için)."""
+    yolo_loaded = analyzer._yolo_model is not None
+    rampnet_loaded = analyzer._rampnet_model is not None
+    return {
+        "service": "KentScan AI Engine v2.0",
+        "pipeline": [
+            "1. Google Street View API → Panorama görüntüsü indir",
+            "2. KVKK Filtre (OpenCV Haar Cascade) → Yüz + plaka Gaussian blur",
+            "3. YOLO11 sidewalk-seg → hole/curb/cover/lane/sidewalk tespiti",
+            "4. RampNet (HuggingFace) → Rampa heatmap analizi",
+            "5. AccessibilityScorer → 5378 Sayılı Kanun puanlaması",
+            "6. Türkçe öneri + yasal madde referansı + ₺ maliyet tahmini",
+        ],
+        "models": {
+            "yolo11": {
+                "repo": "leeyunjai/yolo11-sidewalk-seg",
+                "status": "loaded" if yolo_loaded else "fallback (heuristic)",
+                "detects": ["hole", "curb", "cover", "lane", "sidewalk"],
+                "framework": "Ultralytics YOLO11",
+            },
+            "rampnet": {
+                "repo": "projectsidewalk/rampnet-model",
+                "status": "loaded" if rampnet_loaded else "not available",
+                "detects": ["ramp presence/absence heatmap"],
+                "framework": "HuggingFace Transformers",
+            },
+            "kvkk_filter": {
+                "repo": "OpenCV built-in",
+                "status": "always active",
+                "detects": ["human faces → blur", "license plates → blur"],
+                "framework": "OpenCV Haar Cascade",
+            },
+        },
+        "gsv_api_configured": bool(GSV_API_KEY),
+        "kvkk_compliance": {
+            "face_blur": True,
+            "plate_blur": True,
+            "no_identity_detection": True,
+            "no_profile_building": True,
+            "data_minimization": True,
+        },
+        "legal_framework": "5378 Sayılı Engelliler Kanunu",
+    }
 
 
 def _analyze_image_bytes(image_bytes: bytes, street_view_url: str = "") -> AnalyzeResponse:
@@ -107,7 +156,15 @@ def _analyze_image_bytes(image_bytes: bytes, street_view_url: str = "") -> Analy
     score = scorer.calculate_score(issues)
     total_cost = scorer.calculate_total_cost(issues)
 
-    logger.info(f"Analysis complete: score={score}, issues={len(issues)}, total_cost={total_cost}")
+    models_used = ["kvkk_filter_opencv"]
+    if analyzer._yolo_model is not None:
+        models_used.append("yolo11_sidewalk_seg")
+    else:
+        models_used.append("heuristic_fallback")
+    if analyzer._rampnet_model is not None:
+        models_used.append("rampnet_huggingface")
+
+    logger.info(f"Analysis complete: score={score}, issues={len(issues)}, total_cost={total_cost}, models={models_used}")
 
     return AnalyzeResponse(
         accessibility_score=score,
@@ -115,6 +172,8 @@ def _analyze_image_bytes(image_bytes: bytes, street_view_url: str = "") -> Analy
         street_view_url=street_view_url,
         anonymized_image_url=anonymized_b64,
         total_estimated_cost=total_cost,
+        demo_mode=False,
+        models_used=models_used,
     )
 
 
@@ -215,12 +274,15 @@ def _demo_response(lat: float, lng: float, street_view_url: str) -> AnalyzeRespo
     score = scorer.calculate_score(enriched)
     total_cost = scorer.calculate_total_cost(enriched)
 
+    logger.warning("DEMO MODE active — GSV API key missing or inference failed. Returning synthetic data.")
     return AnalyzeResponse(
         accessibility_score=score,
         issues=[AccessibilityIssue(**i) for i in enriched],
         street_view_url=street_view_url,
         anonymized_image_url="",
         total_estimated_cost=total_cost,
+        demo_mode=True,
+        models_used=["demo_synthetic_data"],
     )
 
 

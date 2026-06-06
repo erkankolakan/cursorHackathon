@@ -41,6 +41,9 @@ type ScanResponse struct {
 	Issues             []model.AccessibilityIssue `json:"issues"`
 	StreetViewURL      string                     `json:"street_view_url,omitempty"`
 	AnonymizedImageURL string                     `json:"anonymized_image_url,omitempty"`
+	TotalEstimatedCost int                        `json:"total_estimated_cost,omitempty"`
+	DemoMode           bool                       `json:"demo_mode"`
+	ModelsUsed         []string                   `json:"models_used,omitempty"`
 	ErrorMessage       string                     `json:"error_message,omitempty"`
 	RequestedBy        uuid.UUID                  `json:"requested_by"`
 	CreatedAt          time.Time                  `json:"created_at"`
@@ -64,6 +67,9 @@ func ToResponse(s *model.Scan) ScanResponse {
 		Issues:             s.Issues,
 		StreetViewURL:      s.StreetViewURL,
 		AnonymizedImageURL: s.AnonymizedImageURL,
+		TotalEstimatedCost: s.TotalEstimatedCost,
+		DemoMode:           s.DemoMode,
+		ModelsUsed:         s.ModelsUsed,
 		ErrorMessage:       s.ErrorMessage,
 		RequestedBy:        s.RequestedBy,
 		CreatedAt:          s.CreatedAt,
@@ -77,5 +83,8 @@ type AIAnalysisResult struct {
 	Issues             []model.AccessibilityIssue `json:"issues"`
 	StreetViewURL      string                     `json:"street_view_url"`
 	AnonymizedImageURL string                     `json:"anonymized_image_url"`
+	TotalEstimatedCost int                        `json:"total_estimated_cost,omitempty"`
+	DemoMode           bool                       `json:"demo_mode"`
+	ModelsUsed         []string                   `json:"models_used,omitempty"`
 	Error              string                     `json:"error,omitempty"`
 }

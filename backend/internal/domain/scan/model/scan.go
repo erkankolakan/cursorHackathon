@@ -85,24 +85,27 @@ type TrendPoint struct {
 
 // Scan represents a single accessibility audit job for a geographic location.
 type Scan struct {
-	ID             uuid.UUID            `json:"id"`
-	OrganizationID uuid.UUID            `json:"organization_id"`
-	Neighbourhood  string               `json:"neighbourhood,omitempty"`
-	District       string               `json:"district"`
-	City           string               `json:"city"`
-	Latitude       float64              `json:"latitude"`
-	Longitude      float64              `json:"longitude"`
-	Source         ScanSource           `json:"source"`
-	Status         ScanStatus           `json:"status"`
-	AccessibilityScore int              `json:"accessibility_score"`
-	Issues         []AccessibilityIssue `json:"issues"`
-	StreetViewURL  string               `json:"street_view_url,omitempty"`
-	AnonymizedImageURL string           `json:"anonymized_image_url,omitempty"`
-	ErrorMessage   string               `json:"error_message,omitempty"`
-	RequestedBy    uuid.UUID            `json:"requested_by"`
-	CreatedAt      time.Time            `json:"created_at"`
-	UpdatedAt      time.Time            `json:"updated_at"`
-	CompletedAt    *time.Time           `json:"completed_at,omitempty"`
+	ID                 uuid.UUID            `json:"id"`
+	OrganizationID     uuid.UUID            `json:"organization_id"`
+	Neighbourhood      string               `json:"neighbourhood,omitempty"`
+	District           string               `json:"district"`
+	City               string               `json:"city"`
+	Latitude           float64              `json:"latitude"`
+	Longitude          float64              `json:"longitude"`
+	Source             ScanSource           `json:"source"`
+	Status             ScanStatus           `json:"status"`
+	AccessibilityScore int                  `json:"accessibility_score"`
+	Issues             []AccessibilityIssue `json:"issues"`
+	StreetViewURL      string               `json:"street_view_url,omitempty"`
+	AnonymizedImageURL string               `json:"anonymized_image_url,omitempty"`
+	TotalEstimatedCost int                  `json:"total_estimated_cost,omitempty"`
+	DemoMode           bool                 `json:"demo_mode"`
+	ModelsUsed         []string             `json:"models_used,omitempty"`
+	ErrorMessage       string               `json:"error_message,omitempty"`
+	RequestedBy        uuid.UUID            `json:"requested_by"`
+	CreatedAt          time.Time            `json:"created_at"`
+	UpdatedAt          time.Time            `json:"updated_at"`
+	CompletedAt        *time.Time           `json:"completed_at,omitempty"`
 }
 
 // ComplianceLevel returns a human-readable compliance label for the score.

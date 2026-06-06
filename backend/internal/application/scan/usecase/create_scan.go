@@ -94,6 +94,9 @@ func (uc *CreateScanUseCase) processAsync(scanID uuid.UUID, lat, lng float64) {
 	scan.Issues = result.Issues
 	scan.StreetViewURL = result.StreetViewURL
 	scan.AnonymizedImageURL = result.AnonymizedImageURL
+	scan.TotalEstimatedCost = result.TotalEstimatedCost
+	scan.DemoMode = result.DemoMode
+	scan.ModelsUsed = result.ModelsUsed
 	scan.CompletedAt = &now
 
 	_ = uc.scanRepo.Update(ctx, scan)

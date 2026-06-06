@@ -134,7 +134,9 @@ npm start serve 4000
 | Method | Endpoint | Açıklama |
 |--------|----------|---------|
 | GET | `/health` | Sağlık kontrolü |
-| POST | `/analyze` | GSV → KVKK blur → YOLO11 → Skor |
+| GET | `/ai-info` | Model durumu, pipeline, KVKK uyum bilgisi |
+| POST | `/analyze` | GSV → KVKK blur → YOLO11 → RampNet → Skor |
+| POST | `/analyze/upload` | Yüklenen fotoğraf → KVKK blur → YOLO11 → Skor |
 
 ### Agent Orchestrator (HTTP)
 
@@ -169,9 +171,116 @@ npm start serve 4000
 
 ---
 
-## Cursor IDE Kullanımı
+## AI Adaptasyonu — Cursor IDE ile Geliştirme Hikayesi
 
-### Cursor Rules
+> Bu proje başından sonuna **Cursor IDE Agentic mode** ile geliştirilmiştir.
+> Her katmanda yapay zekâ hem ürünün içinde hem de geliştirme sürecinin kendisinde aktif rol oynamıştır.
+
+### Katman 1: Ürün İçindeki AI (AI Pipeline)
+
+```
+Kullanıcı Koordinatı
+       │
+       ▼
+┌─────────────────────────────────────────────────────────┐
+│  1. Google Street View API                              │
+│     → 640×640 panorama görüntüsü                        │
+├─────────────────────────────────────────────────────────┤
+│  2. KVKK Filtre (OpenCV Haar Cascade)                   │
+│     → İnsan yüzü tespit → Gaussian Blur (σ=25)          │
+│     → Araç plakası kontur analizi → Gaussian Blur        │
+│     → Geri döndürülemez anonimleştirme                  │
+├─────────────────────────────────────────────────────────┤
+│  3. YOLO11 (leeyunjai/yolo11-sidewalk-seg)              │
+│     HuggingFace model — Ultralytics altyapısı           │
+│     Tespit sınıfları: hole · curb · cover · lane ·      │
+│     sidewalk                                            │
+├─────────────────────────────────────────────────────────┤
+│  4. RampNet (projectsidewalk/rampnet-model)             │
+│     HuggingFace Transformers — rampa heatmap analizi    │
+│     peak_local_max ile rampa varlık/yokluk tespiti      │
+├─────────────────────────────────────────────────────────┤
+│  5. AccessibilityScorer                                 │
+│     5378 Sayılı Kanun kriterleri: 100'den başla         │
+│     critical:-30 · high:-20 · medium:-10 · low:-5       │
+│     + Türkçe öneri + yasal madde + ₺ maliyet tahmini    │
+└─────────────────────────────────────────────────────────┘
+       │
+       ▼
+  Erişilebilirlik Skoru (0-100) + Sorun Listesi
+```
+
+**Canlı model durumunu görmek için:**
+```bash
+curl http://localhost:8001/ai-info
+```
+
+### Katman 2: Geliştirme Sürecindeki AI (Cursor IDE)
+
+#### 2a. Cursor Rules — Bağlamsal AI Yönlendirmesi
+
+Her bounded context için özel Cursor kuralı tanımlandı; böylece agent her dosyada ne yapacağını ve ne yapmaması gerektiğini biliyor:
+
+| Kural Dosyası | Kapsam | Etkisi |
+|---|---|---|
+| `.cursor/rules/kentscan-project.mdc` | Proje geneli | KVKK kırmızı çizgiler, commit formatı, puanlama odakları |
+| `backend/.cursor/rules/masterfabric-go-conventions.mdc` | Go kodu | masterfabric-go mimarisi, DDD kuralları, handler yapısı |
+| `ai-service/.cursor/rules/ai-pipeline.mdc` | Python AI | Model yükleme stratejisi, fallback kuralları, KVKK pipeline |
+
+Cursor rules sayesinde agent, örneğin Go handler yazarken otomatik olarak masterfabric konvansiyonlarına uyan, KVKK ihlali içermeyen kod üretiyor.
+
+#### 2b. Cursor SDK — Programatik Agent Orchestrator
+
+`agent-orchestrator/` klasöründe `@cursor/sdk` kullanılarak **tam çalışır HTTP API servisi** geliştirildi:
+
+```typescript
+// agent-orchestrator/src/agent-runner.ts
+import { Agent, CursorAgentError } from "@cursor/sdk";
+
+// Tek oturum, çoklu görev — bağlam korunur
+const agent = await Agent.create({
+  apiKey: process.env.CURSOR_API_KEY,
+  model: { id: "claude-4-sonnet" },
+  local: { cwd: process.env.TARGET_CWD },
+});
+
+// Stream ile canlı çıktı
+const run = await agent.send("yeni bir erişilebilirlik kuralı ekle");
+for await (const event of run.stream()) {
+  if (event.type === "assistant") { /* canlı akış */ }
+}
+await run.wait(); // terminal durumu bekle
+```
+
+**İki aşamalı planlama pipeline'ı** (`orchestrator.ts`):
+1. **Plan adımı**: "Ne yapacaksın?" → Cursor agent plan çıkarır
+2. **Uygulama adımı**: Plan → Gerçek kod değişiklikleri
+
+**HTTP API olarak da çalışır:**
+```bash
+# Orchestrator başlat
+cd agent-orchestrator && npm start serve 4000
+
+# Agent tetikle
+curl -X POST http://localhost:4000/v1/agent/prompt \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "frontend/src altına yeni rapor bileşeni ekle"}'
+
+# Kullanılabilir modelleri listele
+curl http://localhost:4000/v1/models
+```
+
+#### 2c. Agentic Geliştirme Süreci
+
+Bu projenin tüm katmanları Cursor IDE Agentic mode ile geliştirildi:
+
+- **Backend Go kodu**: masterfabric kuralına göre use-case, domain, repository katmanları
+- **AI Python servisi**: HuggingFace entegrasyonu, YOLO11 fallback stratejisi
+- **Frontend React bileşenleri**: Recharts grafikleri, Leaflet harita, jsPDF raporu
+- **SQL migrasyonlar**: 15 goose migration, scan domain şeması
+- **Cursor kuralları kendisi**: `.cursor/rules/*.mdc` dosyaları agent ile yazıldı
+
+### Cursor Rules (Özet)
 - `.cursor/rules/kentscan-project.mdc` — Proje geneli kurallar
 - `backend/.cursor/rules/masterfabric-go-conventions.mdc` — Go mimarisi kuralları
 
@@ -229,10 +338,21 @@ def anonymize(image_bytes):
 - ✅ Taktil zemin yüzeyi kontrolü
 
 ### Hackathon Sonu Veri Silme
-Hackathon tamamlandığında:
-1. Veritabanındaki tüm `anonymized_image_url` alanları NULL yapılır
-2. Herhangi bir kişisel veri bulunduğu tespit edilirse silinir
-3. Bu adım yazılı olarak belgelenir
+
+Hackathon tamamlandığında **otomatik script** ile KVKK uyumlu silme yapılır:
+
+```bash
+# Sadece anonymized_image_url temizle (standart)
+DB_DSN="postgres://..." ./backend/scripts/kvkk-cleanup.sh
+
+# Neyin silineceğini önce gör (dry-run)
+DB_DSN="postgres://..." ./backend/scripts/kvkk-cleanup.sh --dry-run
+
+# Tüm scan verilerini sil + belge oluştur
+DB_DSN="postgres://..." ./backend/scripts/kvkk-cleanup.sh --all
+```
+
+Script çalışınca `kvkk-deletion-YYYYMMDD-HHMMSS.log` belgesi otomatik oluşur.
 
 **Belgeleme tarihi:** 6 Haziran 2026  
 **Sorumlu:** KentScan Takımı

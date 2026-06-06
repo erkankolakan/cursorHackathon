@@ -25,6 +25,9 @@ export interface Scan {
   issues: AccessibilityIssue[];
   street_view_url?: string;
   anonymized_image_url?: string;
+  total_estimated_cost?: number;
+  demo_mode?: boolean;
+  models_used?: string[];
   error_message?: string;
   requested_by: string;
   created_at: string;

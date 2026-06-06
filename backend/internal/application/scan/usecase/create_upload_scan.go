@@ -110,6 +110,9 @@ func (uc *CreateUploadScanUseCase) processAsync(scanID uuid.UUID, imageBytes []b
 	scan.AccessibilityScore = result.AccessibilityScore
 	scan.Issues = result.Issues
 	scan.AnonymizedImageURL = result.AnonymizedImageURL
+	scan.TotalEstimatedCost = result.TotalEstimatedCost
+	scan.DemoMode = result.DemoMode
+	scan.ModelsUsed = result.ModelsUsed
 	scan.CompletedAt = &now
 
 	_ = uc.scanRepo.Update(ctx, scan)

@@ -52,16 +52,25 @@ class AccessibilityAnalyzer:
             logger.warning(f"YOLO11 model not available: {e} — using heuristic fallback")
 
         try:
-            from transformers import AutoModel
             import torch
+            from transformers import AutoModel
+            from torchvision import transforms
+
             logger.info("Loading RampNet model from HuggingFace...")
             self._rampnet_model = AutoModel.from_pretrained(
                 "projectsidewalk/rampnet-model",
                 trust_remote_code=True,
             )
-            self._rampnet_model.eval()
+            self._rampnet_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self._rampnet_model = self._rampnet_model.to(self._rampnet_device).eval()
+            self._rampnet_preprocess = transforms.Compose([
+                transforms.Resize((2048, 4096), interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
             logger.info("RampNet model loaded successfully")
         except Exception as e:
+            self._rampnet_model = None
             logger.warning(f"RampNet model not available: {e}")
 
     def analyze(self, image_bytes: bytes) -> dict:
@@ -110,13 +119,28 @@ class AccessibilityAnalyzer:
 
         if self._rampnet_model is not None:
             try:
+                import io
                 import torch
                 from PIL import Image
-                import io
+                from skimage.feature import peak_local_max
+
                 pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+                img_tensor = self._rampnet_preprocess(pil_img).unsqueeze(0).to(self._rampnet_device)
+
                 with torch.no_grad():
-                    ramp_score = self._rampnet_model(pil_img)
-                result["ramp_detected"] = bool(ramp_score > 0.5) if hasattr(ramp_score, "__float__") else False
+                    heatmap = self._rampnet_model(img_tensor).squeeze().cpu().numpy()
+
+                heatmap_clipped = np.clip(heatmap, 0, 1)
+                peaks = peak_local_max(heatmap_clipped, min_distance=10, threshold_abs=0.5)
+                result["ramp_detected"] = len(peaks) > 0
+                result["ramp_confidence"] = float(heatmap_clipped.max()) if heatmap_clipped.size else 0.0
+                result["ramp_count"] = int(len(peaks))
+                logger.info(
+                    "RampNet: detected=%s peaks=%d confidence=%.3f",
+                    result["ramp_detected"],
+                    result["ramp_count"],
+                    result["ramp_confidence"],
+                )
             except Exception as e:
                 logger.warning(f"RampNet inference failed: {e}")
 

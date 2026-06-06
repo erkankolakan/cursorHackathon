@@ -62,11 +62,12 @@ class AccessibilityScorer:
         issues = []
 
         if not analysis.get("ramp_detected", True):
+            ramp_conf = analysis.get("ramp_confidence", 0.0)
             issues.append(self._enrich_issue({
                 "type": "missing_ramp",
                 "severity": "critical",
                 "description": "Yaya geçidinde tekerlekli sandalye rampası tespit edilemedi",
-                "confidence": 0.88,
+                "confidence": round(max(0.55, 1.0 - ramp_conf), 2),
             }))
 
         for det in analysis.get("detections", []):
@@ -87,11 +88,15 @@ class AccessibilityScorer:
         if analysis.get("hole_detected"):
             existing_types = {i["type"] for i in issues}
             if "pothole" not in existing_types:
+                hole_conf = max(
+                    (d.get("confidence", 0.5) for d in analysis.get("detections", []) if d.get("class") == "hole"),
+                    default=0.80,
+                )
                 issues.append(self._enrich_issue({
                     "type": "pothole",
                     "severity": "high",
                     "description": "Kaldırım/yol yüzeyinde çukur tespit edildi",
-                    "confidence": 0.80,
+                    "confidence": round(hole_conf, 2),
                 }))
 
         sidewalk_cov = analysis.get("sidewalk_coverage", 0.5)
@@ -102,7 +107,7 @@ class AccessibilityScorer:
                     "type": "no_tactile_paving",
                     "severity": "high",
                     "description": "Görme engelliler için hissedilebilir zemin yüzeyi tespit edilemedi",
-                    "confidence": 0.75,
+                    "confidence": round(max(0.55, 1.0 - sidewalk_cov), 2),
                 }))
 
         return issues

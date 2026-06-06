@@ -16,6 +16,7 @@ import (
 	auditHandler "github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/audit"
 	"github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/health"
 	iamHandler "github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/iam"
+	scanHandler "github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/scan"
 	tenantHandler "github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/tenant"
 
 	// Services & middleware
@@ -38,17 +39,18 @@ type Dependencies struct {
 	RBACService iamService.RBACService
 
 	// Handlers
-	IAMHandler    *iamHandler.Handler
-	TenantHandler *tenantHandler.Handler
+	IAMHandler     *iamHandler.Handler
+	TenantHandler  *tenantHandler.Handler
 	APIMgmtHandler *apimgmtHandler.Handler
-	AuditHandler  *auditHandler.Handler
+	AuditHandler   *auditHandler.Handler
+	ScanHandler    *scanHandler.Handler
 
 	// Gateway
 	GatewayPipeline *gateway.Pipeline
 
 	// Repos needed for middleware
-	OrgRepo        tenantRepo.OrgRepository
-	WorkspaceRepo  tenantRepo.WorkspaceRepository
+	OrgRepo       tenantRepo.OrgRepository
+	WorkspaceRepo tenantRepo.WorkspaceRepository
 }
 
 // New creates the root Chi router with all middleware and routes.
@@ -173,6 +175,15 @@ func New(deps Dependencies) *chi.Mux {
 			// Audit logs by user
 			if deps.AuditHandler != nil {
 				r.Get("/users/{userId}/audit-logs", deps.AuditHandler.ListByUser)
+			}
+
+			// KentScan: accessibility scan routes
+			if deps.ScanHandler != nil {
+				r.Route("/scans", func(r chi.Router) {
+					r.Post("/", deps.ScanHandler.CreateScan)
+					r.Get("/", deps.ScanHandler.ListScans)
+					r.Get("/{id}", deps.ScanHandler.GetScan)
+				})
 			}
 
 			// Catch-all handler for managed endpoints (must be last in the group)

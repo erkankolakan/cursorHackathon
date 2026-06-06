@@ -1,0 +1,46 @@
+---
+description: KentScan scan domain clean architecture kuralları
+globs: ["internal/domain/scan/**", "internal/application/scan/**", "internal/infrastructure/postgres/scan/**", "internal/infrastructure/http/handler/scan/**"]
+alwaysApply: true
+---
+
+# KentScan — Scan Domain Architecture Rules
+
+## Genel İlkeler (masterfabric-go Clean Architecture)
+
+- **Dependency Rule**: İç katmanlar dış katmanlara bağımlı olamaz.
+  - `domain/scan` → hiçbir dış bağımlılık yok
+  - `application/scan` → sadece `domain/scan` ve `shared`
+  - `infrastructure` → `application`, `domain`, `shared`
+
+## Domain Katmanı (`internal/domain/scan/`)
+
+- `model/scan.go` — Sadece domain entity'leri ve value object'ler. DB veya HTTP import edilmez.
+- `repository/scan_repository.go` — Sadece interface tanımı. Implementation infrastructure'da.
+- `ScanStatus`, `IssueType`, `IssueSeverity` — Sadece bu dosyada tanımlanır, başka yerde string literal kullanma.
+
+## Application Katmanı (`internal/application/scan/`)
+
+- `usecase/` — Her use case tek sorumluluk prensibine göre ayrı dosyada.
+- `dto/` — Tüm request/response DTO'ları burada. Domain modelleri direkt expose edilmez.
+- AI servise HTTP çağrısı **sadece** `CreateScanUseCase` içinde yapılır.
+- KVKK gereği: Ham görüntü byte'ları hiçbir zaman persist edilmez, sadece URL saklanır.
+
+## Infrastructure Katmanı
+
+- `postgres/scan/` — pgx driver kullanılır. Issues alanı JSONB olarak saklanır.
+- `http/handler/scan/` — İnce handler'lar: sadece decode → usecase → encode.
+- Handler'lar business logic içermez.
+
+## KVKK Zorunlu Kurallar
+
+- `accessibilityScore`, `issues`, `street_view_url` persist edilebilir.
+- Ham görüntü byte'ları (`image_bytes`) DB'ye yazılmaz, sadece AI servis içinde işlenir.
+- `AnonymizedImageURL` base64 string olarak geçici kullanılır, kalıcı depolanmaz.
+
+## Naming Conventions
+
+- Struct: `PascalCase` — `AccessibilityIssue`, `CreateScanUseCase`
+- Method: `PascalCase` — `Execute`, `ComplianceLevel`
+- DB column: `snake_case` — `accessibility_score`, `organization_id`
+- JSON field: `snake_case` — `street_view_url`

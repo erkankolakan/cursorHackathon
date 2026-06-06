@@ -18,17 +18,20 @@ import (
 	apimgmtHandler "github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/apimanagement"
 	auditHandler "github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/audit"
 	iamHandler "github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/iam"
+	scanHandler "github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/scan"
 	tenantHandler "github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/tenant"
 	"github.com/masterfabric-go/masterfabric/internal/infrastructure/http/router"
 	infraKafka "github.com/masterfabric-go/masterfabric/internal/infrastructure/kafka"
 	pgApimgmt "github.com/masterfabric-go/masterfabric/internal/infrastructure/postgres/apimanagement"
 	pgAudit "github.com/masterfabric-go/masterfabric/internal/infrastructure/postgres/audit"
 	pgIam "github.com/masterfabric-go/masterfabric/internal/infrastructure/postgres/iam"
+	pgScan "github.com/masterfabric-go/masterfabric/internal/infrastructure/postgres/scan"
 	pgTenant "github.com/masterfabric-go/masterfabric/internal/infrastructure/postgres/tenant"
 
 	// Application use cases
 	apimgmtUC "github.com/masterfabric-go/masterfabric/internal/application/apimanagement/usecase"
 	iamUC "github.com/masterfabric-go/masterfabric/internal/application/iam/usecase"
+	scanUC "github.com/masterfabric-go/masterfabric/internal/application/scan/usecase"
 	tenantUC "github.com/masterfabric-go/masterfabric/internal/application/tenant/usecase"
 
 	// Gateway
@@ -253,6 +256,17 @@ func buildDependencies(
 		log.Info("api-management event received", "event", event)
 		return nil
 	})
+
+	// --- KentScan: scan domain wiring ---
+	scanRepo := pgScan.NewScanRepo(db)
+	aiServiceURL := os.Getenv("AI_SERVICE_URL")
+	if aiServiceURL == "" {
+		aiServiceURL = "http://localhost:8001"
+	}
+	createScanUC := scanUC.NewCreateScanUseCase(scanRepo, aiServiceURL)
+	listScansUC := scanUC.NewListScansUseCase(scanRepo)
+	getScanUC := scanUC.NewGetScanUseCase(scanRepo)
+	deps.ScanHandler = scanHandler.NewHandler(createScanUC, listScansUC, getScanUC)
 
 	// --- Handlers ---
 	deps.IAMHandler = iamHandler.NewHandler(registerUC, loginUC, assignRoleUC, userRepo)

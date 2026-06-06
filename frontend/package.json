@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@types/jspdf": "^1.3.3",
     "@types/leaflet": "^1.9.21",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",

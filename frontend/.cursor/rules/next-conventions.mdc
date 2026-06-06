@@ -1,0 +1,43 @@
+---
+description: KentScan Next.js frontend coding conventions
+globs: ["src/**/*.tsx", "src/**/*.ts"]
+alwaysApply: true
+---
+
+# KentScan Frontend Conventions
+
+## Genel
+
+- Next.js App Router kullanılır, Pages Router değil.
+- Tüm interaktif bileşenler `"use client"` direktifi ile başlar.
+- API çağrıları sadece `src/lib/api.ts` üzerinden yapılır.
+- Tailwind CSS v4 kullanılır; CSS-in-JS yok.
+
+## Bileşen Kuralları
+
+- Bileşenler `src/components/` altında single-file olarak tutulur.
+- Props interface'i bileşen dosyasında tanımlanır, ayrı types dosyası açılmaz.
+- `any` kullanımı yasak; `unknown` + type guard kullanılır.
+
+## Erişilebilirlik (a11y)
+
+- Tüm butonların `aria-label` veya anlamlı text içeriği olmalı.
+- Renk kodlaması tek başına bilgi iletmez; icon veya text eşliğinde kullanılır.
+- Score göstergelerinde renk + sayı + metin birlikte gösterilir.
+
+## KVKK UI Bildirimleri
+
+- Yeni tarama başlatılırken KVKK uyarı kutusu mutlaka gösterilir.
+- Street View URL'leri yeni sekmede açılır (`target="_blank" rel="noopener noreferrer"`).
+
+## State Yönetimi
+
+- Basit local state için `useState`.
+- Async veri için fetch + loading/error state pattern.
+- Global state için Context API (redux veya zustand ekleme).
+
+## Kod Kalitesi
+
+- `console.log` production kodunda bırakılmaz.
+- Loading skeleton'lar gerçek layout'u yansıtır.
+- Error boundary'ler kritik bileşenlerde kullanılır.

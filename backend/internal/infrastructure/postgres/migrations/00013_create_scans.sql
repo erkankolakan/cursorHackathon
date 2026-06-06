@@ -1,4 +1,4 @@
--- 00013_create_scans.sql
+-- +goose Up
 -- KentScan: erişilebilirlik tarama sonuçları tablosu
 
 CREATE TABLE IF NOT EXISTS scans (
@@ -24,3 +24,6 @@ CREATE INDEX IF NOT EXISTS idx_scans_organization_id ON scans(organization_id);
 CREATE INDEX IF NOT EXISTS idx_scans_status ON scans(status);
 CREATE INDEX IF NOT EXISTS idx_scans_created_at ON scans(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_scans_district ON scans(district);
+
+-- +goose Down
+DROP TABLE IF EXISTS scans;

@@ -7,6 +7,15 @@ import (
 	"github.com/masterfabric-go/masterfabric/internal/domain/scan/model"
 )
 
+// CreateUploadScanRequest is the metadata for an uploaded-photo scan.
+type CreateUploadScanRequest struct {
+	Neighbourhood string  `json:"neighbourhood,omitempty"`
+	District      string  `json:"district" validate:"required,min=2"`
+	City          string  `json:"city" validate:"required,min=2"`
+	Latitude      float64 `json:"latitude"`
+	Longitude     float64 `json:"longitude"`
+}
+
 // CreateScanRequest is the payload for initiating a new scan job.
 type CreateScanRequest struct {
 	Neighbourhood string  `json:"neighbourhood,omitempty"`
@@ -25,6 +34,7 @@ type ScanResponse struct {
 	City               string                     `json:"city"`
 	Latitude           float64                    `json:"latitude"`
 	Longitude          float64                    `json:"longitude"`
+	Source             string                     `json:"source"`
 	Status             string                     `json:"status"`
 	AccessibilityScore int                        `json:"accessibility_score"`
 	ComplianceLevel    string                     `json:"compliance_level"`
@@ -47,6 +57,7 @@ func ToResponse(s *model.Scan) ScanResponse {
 		City:               s.City,
 		Latitude:           s.Latitude,
 		Longitude:          s.Longitude,
+		Source:             string(s.Source),
 		Status:             string(s.Status),
 		AccessibilityScore: s.AccessibilityScore,
 		ComplianceLevel:    s.ComplianceLevel(),

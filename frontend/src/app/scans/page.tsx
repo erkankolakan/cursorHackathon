@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { listScans, createScan, pollScanStatus, loadStoredAuth, type Scan } from "@/lib/api";
+import { listScans, createScan, createScanFromUpload, pollScanStatus, loadStoredAuth, type Scan } from "@/lib/api";
 import AppShell from "@/components/AppShell";
 import ScanCard from "@/components/ScanCard";
 import NewScanModal from "@/components/NewScanModal";
@@ -29,6 +29,13 @@ export default function ScansPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  function startPolling(scan: Scan) {
+    const stopPoll = pollScanStatus(scan.id, (updated) => {
+      setScans(prev => prev.map(s => s.id === updated.id ? updated : s));
+      if (updated.status === "completed" || updated.status === "failed") stopPoll();
+    });
+  }
+
   async function handleCreateScan(data: { district: string; city: string; latitude: number; longitude: number }) {
     setCreating(true);
     setScanError("");
@@ -37,12 +44,25 @@ export default function ScansPage() {
       const scan = await createScan(data);
       setScans(prev => [scan, ...prev]);
       setShowNewScan(false);
-      const stopPoll = pollScanStatus(scan.id, (updated) => {
-        setScans(prev => prev.map(s => s.id === updated.id ? updated : s));
-        if (updated.status === "completed" || updated.status === "failed") stopPoll();
-      });
+      startPolling(scan);
     } catch (err) {
       setScanError(err instanceof Error ? err.message : "Tarama başlatılamadı");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleUploadScan(data: { image: File; district: string; city: string; neighbourhood?: string }) {
+    setCreating(true);
+    setScanError("");
+    try {
+      loadStoredAuth();
+      const scan = await createScanFromUpload(data);
+      setScans(prev => [scan, ...prev]);
+      setShowNewScan(false);
+      startPolling(scan);
+    } catch (err) {
+      setScanError(err instanceof Error ? err.message : "Fotoğraf analizi başlatılamadı");
     } finally {
       setCreating(false);
     }
@@ -126,6 +146,7 @@ export default function ScansPage() {
         <NewScanModal
           onClose={() => { setShowNewScan(false); setScanError(""); }}
           onSubmit={handleCreateScan}
+          onUpload={handleUploadScan}
           loading={creating}
           error={scanError}
         />

@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"time"
 
@@ -14,29 +16,41 @@ import (
 	"github.com/masterfabric-go/masterfabric/internal/domain/scan/repository"
 )
 
-// CreateScanUseCase orchestrates creating a scan job and dispatching it to the AI service.
-type CreateScanUseCase struct {
+const maxUploadBytes = 10 << 20 // 10 MB
+
+// CreateUploadScanUseCase handles institution-uploaded photo analysis.
+type CreateUploadScanUseCase struct {
 	scanRepo     repository.ScanRepository
 	aiServiceURL string
 	httpClient   *http.Client
 }
 
-// NewCreateScanUseCase creates a new CreateScanUseCase.
-func NewCreateScanUseCase(scanRepo repository.ScanRepository, aiServiceURL string) *CreateScanUseCase {
-	return &CreateScanUseCase{
+// NewCreateUploadScanUseCase creates a new CreateUploadScanUseCase.
+func NewCreateUploadScanUseCase(scanRepo repository.ScanRepository, aiServiceURL string) *CreateUploadScanUseCase {
+	return &CreateUploadScanUseCase{
 		scanRepo:     scanRepo,
 		aiServiceURL: aiServiceURL,
 		httpClient:   &http.Client{Timeout: 120 * time.Second},
 	}
 }
 
-type aiAnalyzeRequest struct {
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-}
+// Execute creates a pending scan and processes the uploaded image asynchronously.
+// Raw image bytes are never persisted — only forwarded to the AI service.
+func (uc *CreateUploadScanUseCase) Execute(
+	ctx context.Context,
+	orgID uuid.UUID,
+	userID uuid.UUID,
+	req dto.CreateUploadScanRequest,
+	imageBytes []byte,
+	filename string,
+) (*dto.ScanResponse, error) {
+	if len(imageBytes) == 0 {
+		return nil, fmt.Errorf("boş görüntü dosyası")
+	}
+	if len(imageBytes) > maxUploadBytes {
+		return nil, fmt.Errorf("dosya boyutu 10 MB'ı aşamaz")
+	}
 
-// Execute creates a pending scan record and immediately returns; AI analysis runs in background.
-func (uc *CreateScanUseCase) Execute(ctx context.Context, orgID uuid.UUID, userID uuid.UUID, req dto.CreateScanRequest) (*dto.ScanResponse, error) {
 	scan := &model.Scan{
 		OrganizationID: orgID,
 		Neighbourhood:  req.Neighbourhood,
@@ -44,7 +58,7 @@ func (uc *CreateScanUseCase) Execute(ctx context.Context, orgID uuid.UUID, userI
 		City:           req.City,
 		Latitude:       req.Latitude,
 		Longitude:      req.Longitude,
-		Source:         model.ScanSourceStreetView,
+		Source:         model.ScanSourceUpload,
 		Status:         model.ScanStatusPending,
 		RequestedBy:    userID,
 	}
@@ -53,15 +67,16 @@ func (uc *CreateScanUseCase) Execute(ctx context.Context, orgID uuid.UUID, userI
 		return nil, err
 	}
 
-	// Process asynchronously so the HTTP response is returned immediately.
-	go uc.processAsync(scan.ID, req.Latitude, req.Longitude)
+	imgCopy := make([]byte, len(imageBytes))
+	copy(imgCopy, imageBytes)
+
+	go uc.processAsync(scan.ID, imgCopy, filename)
 
 	resp := dto.ToResponse(scan)
 	return &resp, nil
 }
 
-// processAsync runs the AI analysis in a background goroutine.
-func (uc *CreateScanUseCase) processAsync(scanID uuid.UUID, lat, lng float64) {
+func (uc *CreateUploadScanUseCase) processAsync(scanID uuid.UUID, imageBytes []byte, filename string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
@@ -73,7 +88,7 @@ func (uc *CreateScanUseCase) processAsync(scanID uuid.UUID, lat, lng float64) {
 	scan.Status = model.ScanStatusProcessing
 	_ = uc.scanRepo.Update(ctx, scan)
 
-	result, err := uc.callAIService(ctx, lat, lng)
+	result, err := uc.callAIService(ctx, imageBytes, filename)
 	if err != nil {
 		scan.Status = model.ScanStatusFailed
 		scan.ErrorMessage = err.Error()
@@ -92,26 +107,43 @@ func (uc *CreateScanUseCase) processAsync(scanID uuid.UUID, lat, lng float64) {
 	scan.Status = model.ScanStatusCompleted
 	scan.AccessibilityScore = result.AccessibilityScore
 	scan.Issues = result.Issues
-	scan.StreetViewURL = result.StreetViewURL
 	scan.AnonymizedImageURL = result.AnonymizedImageURL
 	scan.CompletedAt = &now
 
 	_ = uc.scanRepo.Update(ctx, scan)
 }
 
-func (uc *CreateScanUseCase) callAIService(ctx context.Context, lat, lng float64) (*dto.AIAnalysisResult, error) {
-	payload, _ := json.Marshal(aiAnalyzeRequest{Latitude: lat, Longitude: lng})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/analyze", uc.aiServiceURL), bytes.NewReader(payload))
+func (uc *CreateUploadScanUseCase) callAIService(ctx context.Context, imageBytes []byte, filename string) (*dto.AIAnalysisResult, error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	part, err := writer.CreateFormFile("image", filename)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	if _, err := io.Copy(part, bytes.NewReader(imageBytes)); err != nil {
+		return nil, err
+	}
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/analyze/upload", uc.aiServiceURL), body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	resp, err := uc.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("AI servisi hata döndü (%d): %s", resp.StatusCode, string(respBody))
+	}
 
 	var result dto.AIAnalysisResult
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {

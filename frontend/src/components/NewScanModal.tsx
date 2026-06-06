@@ -58,15 +58,27 @@ const CITY_PRESETS: Record<string, { district: string; city: string; latitude: n
   ],
 };
 
+type ScanMode = "street_view" | "upload";
+
 interface NewScanModalProps {
   onClose: () => void;
   onSubmit: (data: { district: string; city: string; latitude: number; longitude: number; neighbourhood?: string }) => void;
+  onUpload?: (data: { image: File; district: string; city: string; neighbourhood?: string; latitude?: number; longitude?: number }) => void;
   loading: boolean;
   error?: string;
 }
 
-export default function NewScanModal({ onClose, onSubmit, loading, error }: NewScanModalProps) {
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+export default function NewScanModal({ onClose, onSubmit, onUpload, loading, error }: NewScanModalProps) {
+  const [mode, setMode] = useState<ScanMode>("street_view");
   const [activeCity, setActiveCity] = useState<string>("İstanbul");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadForm, setUploadForm] = useState({ district: "", city: "İstanbul", neighbourhood: "" });
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -82,6 +94,12 @@ export default function NewScanModal({ onClose, onSubmit, loading, error }: NewS
   const [resolvedLocation, setResolvedLocation] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -156,6 +174,10 @@ export default function NewScanModal({ onClose, onSubmit, loading, error }: NewS
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (mode === "upload") {
+      handleUploadSubmit();
+      return;
+    }
     if (!form.latitude || !form.longitude) return;
     onSubmit({
       district: form.district,
@@ -166,7 +188,47 @@ export default function NewScanModal({ onClose, onSubmit, loading, error }: NewS
     });
   }
 
-  const isReady = form.latitude !== "" && form.longitude !== "";
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    setUploadError("");
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setUploadError("Sadece JPEG, PNG veya WebP dosyaları desteklenir.");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setUploadError("Dosya boyutu 10 MB'ı aşamaz.");
+      return;
+    }
+
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  }
+
+  function handleUploadSubmit() {
+    if (!onUpload) return;
+    if (!selectedFile) {
+      setUploadError("Lütfen bir fotoğraf seçin.");
+      return;
+    }
+    if (!uploadForm.district.trim() || !uploadForm.city.trim()) {
+      setUploadError("İlçe ve şehir bilgisi zorunludur.");
+      return;
+    }
+    setUploadError("");
+    onUpload({
+      image: selectedFile,
+      district: uploadForm.district.trim(),
+      city: uploadForm.city.trim(),
+      neighbourhood: uploadForm.neighbourhood.trim() || undefined,
+    });
+  }
+
+  const isReady = mode === "upload"
+    ? !!selectedFile && !!uploadForm.district.trim() && !!uploadForm.city.trim()
+    : form.latitude !== "" && form.longitude !== "";
   const presets = CITY_PRESETS[activeCity] ?? [];
 
   return (
@@ -185,6 +247,103 @@ export default function NewScanModal({ onClose, onSubmit, loading, error }: NewS
           </button>
         </div>
 
+        {/* --- MOD SEÇİMİ --- */}
+        <div className="flex gap-2 mb-5 p-1 bg-slate-800 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setMode("street_view")}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+              mode === "street_view" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            Street View
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("upload")}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+              mode === "upload" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            Fotoğraf Yükle
+          </button>
+        </div>
+
+        {mode === "upload" ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-slate-600 rounded-xl p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-slate-800/50 transition-colors"
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              {previewUrl ? (
+                <img src={previewUrl} alt="Önizleme" className="max-h-48 mx-auto rounded-lg object-contain" />
+              ) : (
+                <>
+                  <div className="text-3xl mb-2">📷</div>
+                  <p className="text-white text-sm font-medium">Fotoğraf seçmek için tıklayın</p>
+                  <p className="text-slate-500 text-xs mt-1">JPEG, PNG, WebP — maks. 10 MB</p>
+                </>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-slate-400 text-xs mb-1 block">İlçe *</label>
+                <input
+                  required
+                  value={uploadForm.district}
+                  onChange={(e) => setUploadForm((f) => ({ ...f, district: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  placeholder="Kadıköy"
+                />
+              </div>
+              <div>
+                <label className="text-slate-400 text-xs mb-1 block">Şehir *</label>
+                <input
+                  required
+                  value={uploadForm.city}
+                  onChange={(e) => setUploadForm((f) => ({ ...f, city: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block">Mahalle (isteğe bağlı)</label>
+              <input
+                value={uploadForm.neighbourhood}
+                onChange={(e) => setUploadForm((f) => ({ ...f, neighbourhood: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                placeholder="Moda, Bağcılar..."
+              />
+            </div>
+
+            <div className="bg-blue-950/30 border border-blue-900 rounded-lg p-3 text-xs text-blue-300">
+              <strong>KVKK Uyarısı:</strong> Yüklenen görüntüdeki yüzler ve plakalar anonimleştirilir; ham görüntü kalıcı olarak saklanmaz.
+            </div>
+
+            {(uploadError || error) && (
+              <div className="bg-red-950 border border-red-800 rounded-lg px-3 py-2 text-red-400 text-sm">
+                {uploadError || error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || !isReady}
+              className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors"
+            >
+              {loading ? "Analiz ediliyor..." : "Fotoğrafı Analiz Et"}
+            </button>
+          </form>
+        ) : (
+        <>
         {/* --- KONUM ARAMA --- */}
         <div className="mb-5" ref={searchRef}>
           <label className="text-slate-300 text-sm font-medium mb-2 block">
@@ -378,6 +537,8 @@ export default function NewScanModal({ onClose, onSubmit, loading, error }: NewS
             {loading ? "Tarama başlatılıyor..." : "Taramayı Başlat"}
           </button>
         </form>
+        </>
+        )}
       </div>
     </div>
   );

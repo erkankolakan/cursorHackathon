@@ -6,6 +6,14 @@ import (
 	"github.com/google/uuid"
 )
 
+// ScanSource indicates how the scan image was obtained.
+type ScanSource string
+
+const (
+	ScanSourceStreetView ScanSource = "street_view"
+	ScanSourceUpload     ScanSource = "upload"
+)
+
 // ScanStatus represents the lifecycle state of a scan job.
 type ScanStatus string
 
@@ -84,6 +92,7 @@ type Scan struct {
 	City           string               `json:"city"`
 	Latitude       float64              `json:"latitude"`
 	Longitude      float64              `json:"longitude"`
+	Source         ScanSource           `json:"source"`
 	Status         ScanStatus           `json:"status"`
 	AccessibilityScore int              `json:"accessibility_score"`
 	Issues         []AccessibilityIssue `json:"issues"`

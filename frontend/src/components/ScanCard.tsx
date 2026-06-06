@@ -39,10 +39,17 @@ export default function ScanCard({ scan }: { scan: Scan }) {
               {scan.neighbourhood ? `${scan.district}, ${scan.city}` : scan.city}
             </p>
           </div>
-          <span className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${status.bg} ${status.text}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-            {status.label}
-          </span>
+          <div className="flex flex-col items-end gap-1">
+            {scan.source === "upload" && (
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-purple-950 text-purple-300">
+                Yüklenen Fotoğraf
+              </span>
+            )}
+            <span className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${status.bg} ${status.text}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+              {status.label}
+            </span>
+          </div>
         </div>
 
         {/* Score */}
@@ -93,7 +100,9 @@ export default function ScanCard({ scan }: { scan: Scan }) {
         {/* Footer */}
         <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between">
           <p className="text-slate-600 text-[10px]">
-            {scan.latitude.toFixed(4)}, {scan.longitude.toFixed(4)}
+            {scan.source === "upload" && scan.latitude === 0 && scan.longitude === 0
+              ? "Fotoğraf yükleme"
+              : `${scan.latitude.toFixed(4)}, ${scan.longitude.toFixed(4)}`}
           </p>
           <p className="text-slate-600 text-[10px]">
             {new Date(scan.created_at).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}

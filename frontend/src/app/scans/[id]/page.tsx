@@ -93,8 +93,12 @@ export default function ScanDetailPage() {
               <p className="text-slate-400">
                 {scan.neighbourhood ? `${scan.district} — ${scan.city}` : scan.city}
               </p>
-              <p className="text-slate-600 text-sm mt-1 font-mono">
-                {scan.latitude.toFixed(5)}, {scan.longitude.toFixed(5)}
+              <p className="text-slate-600 text-sm mt-1">
+                {scan.source === "upload" ? (
+                  <span className="text-purple-400 text-xs font-medium">Yüklenen Fotoğraf</span>
+                ) : (
+                  <span className="font-mono">{scan.latitude.toFixed(5)}, {scan.longitude.toFixed(5)}</span>
+                )}
               </p>
             </div>
 
@@ -134,7 +138,7 @@ export default function ScanDetailPage() {
             </div>
             <img
               src={scan.anonymized_image_url}
-              alt="Anonimleştirilmiş Street View"
+              alt={scan.source === "upload" ? "Anonimleştirilmiş yüklenen fotoğraf" : "Anonimleştirilmiş Street View"}
               className="w-full rounded-xl object-cover max-h-72 border border-slate-700"
             />
           </div>

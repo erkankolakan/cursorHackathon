@@ -264,10 +264,11 @@ func buildDependencies(
 		aiServiceURL = "http://localhost:8001"
 	}
 	createScanUC := scanUC.NewCreateScanUseCase(scanRepo, aiServiceURL)
+	createUploadScanUC := scanUC.NewCreateUploadScanUseCase(scanRepo, aiServiceURL)
 	listScansUC := scanUC.NewListScansUseCase(scanRepo)
 	getScanUC := scanUC.NewGetScanUseCase(scanRepo)
 	getStatsUC := scanUC.NewGetStatsUseCase(scanRepo)
-	deps.ScanHandler = scanHandler.NewHandler(createScanUC, listScansUC, getScanUC, getStatsUC)
+	deps.ScanHandler = scanHandler.NewHandler(createScanUC, createUploadScanUC, listScansUC, getScanUC, getStatsUC)
 
 	// --- Handlers ---
 	deps.IAMHandler = iamHandler.NewHandler(registerUC, loginUC, assignRoleUC, userRepo)

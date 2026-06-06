@@ -18,6 +18,7 @@ export interface Scan {
   city: string;
   latitude: number;
   longitude: number;
+  source?: "street_view" | "upload";
   status: "pending" | "processing" | "completed" | "failed";
   accessibility_score: number;
   compliance_level: string;
@@ -216,6 +217,38 @@ export async function createScan(req: CreateScanRequest): Promise<Scan> {
     body: JSON.stringify(req),
   });
   if (!resp.ok) throw new Error(await parseError(resp, "Tarama başlatılamadı"));
+  return resp.json();
+}
+
+export interface CreateUploadScanRequest {
+  image: File;
+  district: string;
+  city: string;
+  neighbourhood?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export async function createScanFromUpload(req: CreateUploadScanRequest): Promise<Scan> {
+  loadStoredAuth();
+  const form = new FormData();
+  form.append("image", req.image);
+  form.append("district", req.district);
+  form.append("city", req.city);
+  if (req.neighbourhood) form.append("neighbourhood", req.neighbourhood);
+  if (req.latitude != null) form.append("latitude", String(req.latitude));
+  if (req.longitude != null) form.append("longitude", String(req.longitude));
+
+  const h: Record<string, string> = {};
+  if (authToken) h["Authorization"] = `Bearer ${authToken}`;
+  if (orgId) h["X-Organization-ID"] = orgId;
+
+  const resp = await fetch(`${API_URL}/api/v1/scans/upload`, {
+    method: "POST",
+    headers: h,
+    body: form,
+  });
+  if (!resp.ok) throw new Error(await parseError(resp, "Fotoğraf analizi başlatılamadı"));
   return resp.json();
 }
 

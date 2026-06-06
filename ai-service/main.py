@@ -19,7 +19,7 @@ from typing import Optional, Any
 import httpx
 import numpy as np
 import cv2
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -49,6 +49,8 @@ app.add_middleware(
 
 GSV_API_KEY = os.getenv("GOOGLE_STREET_VIEW_API_KEY", "")
 AI_SERVICE_PORT = int(os.getenv("AI_SERVICE_PORT", "8001"))
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 gsv_client = GSVClient(GSV_API_KEY)
 kvkk_filter = KVKKFilter()
@@ -85,19 +87,8 @@ async def health():
     return {"status": "ok", "service": "kentscan-ai", "version": "2.0.0"}
 
 
-@app.post("/analyze", response_model=AnalyzeResponse)
-async def analyze(req: AnalyzeRequest):
-    logger.info(f"Analyzing location: lat={req.latitude}, lng={req.longitude}")
-
-    street_view_url = gsv_client.build_url(req.latitude, req.longitude)
-
-    try:
-        image_bytes = await gsv_client.fetch_image(req.latitude, req.longitude)
-    except Exception as e:
-        logger.error(f"GSV fetch failed: {e}")
-        return _demo_response(req.latitude, req.longitude, street_view_url)
-
-    # KVKK: yüz ve plaka anonimleştirme
+def _analyze_image_bytes(image_bytes: bytes, street_view_url: str = "") -> AnalyzeResponse:
+    """KVKK anonimleştirme + AI analizi pipeline'ı."""
     try:
         anonymized_bytes = kvkk_filter.anonymize(image_bytes)
     except Exception as e:
@@ -106,12 +97,11 @@ async def analyze(req: AnalyzeRequest):
 
     anonymized_b64 = "data:image/jpeg;base64," + base64.b64encode(anonymized_bytes).decode()
 
-    # AI analizi
     try:
         detections = analyzer.analyze(anonymized_bytes)
     except Exception as e:
         logger.error(f"AI analysis failed: {e}")
-        return _demo_response(req.latitude, req.longitude, street_view_url)
+        raise HTTPException(status_code=500, detail="AI analizi başarısız oldu") from e
 
     issues = scorer.detections_to_issues(detections)
     score = scorer.calculate_score(issues)
@@ -126,6 +116,44 @@ async def analyze(req: AnalyzeRequest):
         anonymized_image_url=anonymized_b64,
         total_estimated_cost=total_cost,
     )
+
+
+@app.post("/analyze", response_model=AnalyzeResponse)
+async def analyze(req: AnalyzeRequest):
+    logger.info(f"Analyzing location: lat={req.latitude}, lng={req.longitude}")
+
+    street_view_url = gsv_client.build_url(req.latitude, req.longitude)
+
+    try:
+        image_bytes = await gsv_client.fetch_image(req.latitude, req.longitude)
+    except Exception as e:
+        logger.error(f"GSV fetch failed: {e}")
+        return _demo_response(req.latitude, req.longitude, street_view_url)
+
+    try:
+        return _analyze_image_bytes(image_bytes, street_view_url)
+    except HTTPException:
+        return _demo_response(req.latitude, req.longitude, street_view_url)
+
+
+@app.post("/analyze/upload", response_model=AnalyzeResponse)
+async def analyze_upload(image: UploadFile = File(...)):
+    """Kurum tarafından yüklenen fotoğrafı analiz eder."""
+    content_type = (image.content_type or "").lower()
+    if content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Desteklenen formatlar: JPEG, PNG, WebP",
+        )
+
+    image_bytes = await image.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Boş dosya yüklenemez")
+    if len(image_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="Dosya boyutu 10 MB'ı aşamaz")
+
+    logger.info(f"Analyzing uploaded image: {image.filename}, size={len(image_bytes)} bytes")
+    return _analyze_image_bytes(image_bytes)
 
 
 def _demo_response(lat: float, lng: float, street_view_url: str) -> AnalyzeResponse:

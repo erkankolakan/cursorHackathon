@@ -1,7 +1,9 @@
 package scan
 
 import (
+	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -13,22 +15,32 @@ import (
 	"github.com/masterfabric-go/masterfabric/internal/shared/validator"
 )
 
+const maxUploadBytes = 10 << 20 // 10 MB
+
 // Handler provides HTTP handlers for the scan domain.
 type Handler struct {
-	createUC *usecase.CreateScanUseCase
-	listUC   *usecase.ListScansUseCase
-	getUC    *usecase.GetScanUseCase
-	statsUC  *usecase.GetStatsUseCase
+	createUC       *usecase.CreateScanUseCase
+	createUploadUC *usecase.CreateUploadScanUseCase
+	listUC         *usecase.ListScansUseCase
+	getUC          *usecase.GetScanUseCase
+	statsUC        *usecase.GetStatsUseCase
 }
 
 // NewHandler creates a new scan HTTP handler.
 func NewHandler(
 	createUC *usecase.CreateScanUseCase,
+	createUploadUC *usecase.CreateUploadScanUseCase,
 	listUC *usecase.ListScansUseCase,
 	getUC *usecase.GetScanUseCase,
 	statsUC *usecase.GetStatsUseCase,
 ) *Handler {
-	return &Handler{createUC: createUC, listUC: listUC, getUC: getUC, statsUC: statsUC}
+	return &Handler{
+		createUC:       createUC,
+		createUploadUC: createUploadUC,
+		listUC:         listUC,
+		getUC:          getUC,
+		statsUC:        statsUC,
+	}
 }
 
 func resolveOrgID(r *http.Request) (uuid.UUID, bool) {
@@ -70,6 +82,74 @@ func (h *Handler) CreateScan(w http.ResponseWriter, r *http.Request) {
 	result, err := h.createUC.Execute(r.Context(), orgID, userID, req)
 	if err != nil {
 		response.Error(w, err)
+		return
+	}
+
+	response.Created(w, result)
+}
+
+// CreateScanFromUpload handles POST /api/v1/scans/upload (multipart/form-data).
+func (h *Handler) CreateScanFromUpload(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		response.JSON(w, http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
+		return
+	}
+
+	orgID, ok := resolveOrgID(r)
+	if !ok {
+		response.JSON(w, http.StatusBadRequest, map[string]string{"error": "X-Organization-ID header required"})
+		return
+	}
+
+	if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
+		response.JSON(w, http.StatusBadRequest, map[string]string{"error": "geçersiz form verisi veya dosya çok büyük"})
+		return
+	}
+
+	file, header, err := r.FormFile("image")
+	if err != nil {
+		response.JSON(w, http.StatusBadRequest, map[string]string{"error": "image alanı zorunludur"})
+		return
+	}
+	defer file.Close()
+
+	imageBytes, err := io.ReadAll(io.LimitReader(file, maxUploadBytes+1))
+	if err != nil {
+		response.JSON(w, http.StatusBadRequest, map[string]string{"error": "dosya okunamadı"})
+		return
+	}
+	if len(imageBytes) > maxUploadBytes {
+		response.JSON(w, http.StatusBadRequest, map[string]string{"error": "dosya boyutu 10 MB'ı aşamaz"})
+		return
+	}
+
+	district := r.FormValue("district")
+	city := r.FormValue("city")
+	if district == "" || city == "" {
+		response.JSON(w, http.StatusBadRequest, map[string]string{"error": "district ve city alanları zorunludur"})
+		return
+	}
+
+	lat, _ := strconv.ParseFloat(r.FormValue("latitude"), 64)
+	lng, _ := strconv.ParseFloat(r.FormValue("longitude"), 64)
+
+	req := dto.CreateUploadScanRequest{
+		Neighbourhood: r.FormValue("neighbourhood"),
+		District:      district,
+		City:          city,
+		Latitude:      lat,
+		Longitude:     lng,
+	}
+
+	filename := header.Filename
+	if filename == "" {
+		filename = "upload.jpg"
+	}
+
+	result, err := h.createUploadUC.Execute(r.Context(), orgID, userID, req, imageBytes, filename)
+	if err != nil {
+		response.JSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
 

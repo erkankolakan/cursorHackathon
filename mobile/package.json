@@ -3,7 +3,6 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@cursor/sdk": "^1.0.18",
     "@expo/ui": "~56.0.16",
     "@expo/vector-icons": "^15.0.2",
     "@hookform/resolvers": "^5.4.0",

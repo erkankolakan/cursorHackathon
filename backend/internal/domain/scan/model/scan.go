@@ -79,6 +79,7 @@ type TrendPoint struct {
 type Scan struct {
 	ID             uuid.UUID            `json:"id"`
 	OrganizationID uuid.UUID            `json:"organization_id"`
+	Neighbourhood  string               `json:"neighbourhood,omitempty"`
 	District       string               `json:"district"`
 	City           string               `json:"city"`
 	Latitude       float64              `json:"latitude"`

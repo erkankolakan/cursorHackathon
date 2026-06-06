@@ -39,6 +39,7 @@ type aiAnalyzeRequest struct {
 func (uc *CreateScanUseCase) Execute(ctx context.Context, orgID uuid.UUID, userID uuid.UUID, req dto.CreateScanRequest) (*dto.ScanResponse, error) {
 	scan := &model.Scan{
 		OrganizationID: orgID,
+		Neighbourhood:  req.Neighbourhood,
 		District:       req.District,
 		City:           req.City,
 		Latitude:       req.Latitude,

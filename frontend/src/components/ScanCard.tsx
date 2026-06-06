@@ -32,8 +32,12 @@ export default function ScanCard({ scan }: { scan: Scan }) {
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div>
-            <h3 className="font-bold text-white group-hover:text-blue-300 transition-colors">{scan.district}</h3>
-            <p className="text-slate-500 text-xs">{scan.city}</p>
+            <h3 className="font-bold text-white group-hover:text-blue-300 transition-colors">
+              {scan.neighbourhood ? scan.neighbourhood : scan.district}
+            </h3>
+            <p className="text-slate-500 text-xs">
+              {scan.neighbourhood ? `${scan.district}, ${scan.city}` : scan.city}
+            </p>
           </div>
           <span className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${status.bg} ${status.text}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />

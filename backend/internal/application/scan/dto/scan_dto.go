@@ -9,16 +9,18 @@ import (
 
 // CreateScanRequest is the payload for initiating a new scan job.
 type CreateScanRequest struct {
-	District  string  `json:"district" validate:"required,min=2"`
-	City      string  `json:"city" validate:"required,min=2"`
-	Latitude  float64 `json:"latitude" validate:"required"`
-	Longitude float64 `json:"longitude" validate:"required"`
+	Neighbourhood string  `json:"neighbourhood,omitempty"`
+	District      string  `json:"district" validate:"required,min=2"`
+	City          string  `json:"city" validate:"required,min=2"`
+	Latitude      float64 `json:"latitude" validate:"required"`
+	Longitude     float64 `json:"longitude" validate:"required"`
 }
 
 // ScanResponse is the API representation of a Scan.
 type ScanResponse struct {
 	ID                 uuid.UUID                  `json:"id"`
 	OrganizationID     uuid.UUID                  `json:"organization_id"`
+	Neighbourhood      string                     `json:"neighbourhood,omitempty"`
 	District           string                     `json:"district"`
 	City               string                     `json:"city"`
 	Latitude           float64                    `json:"latitude"`
@@ -40,6 +42,7 @@ func ToResponse(s *model.Scan) ScanResponse {
 	return ScanResponse{
 		ID:                 s.ID,
 		OrganizationID:     s.OrganizationID,
+		Neighbourhood:      s.Neighbourhood,
 		District:           s.District,
 		City:               s.City,
 		Latitude:           s.Latitude,

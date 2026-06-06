@@ -35,11 +35,11 @@ func (r *ScanRepo) Create(ctx context.Context, s *model.Scan) error {
 
 	_, err := r.db.Exec(ctx,
 		`INSERT INTO scans
-		 (id, organization_id, district, city, latitude, longitude, status,
+		 (id, organization_id, neighbourhood, district, city, latitude, longitude, status,
 		  accessibility_score, issues, street_view_url, anonymized_image_url,
 		  error_message, requested_by, created_at, updated_at, completed_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-		s.ID, s.OrganizationID, s.District, s.City, s.Latitude, s.Longitude, s.Status,
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+		s.ID, s.OrganizationID, s.Neighbourhood, s.District, s.City, s.Latitude, s.Longitude, s.Status,
 		s.AccessibilityScore, issuesJSON, s.StreetViewURL, s.AnonymizedImageURL,
 		s.ErrorMessage, s.RequestedBy, s.CreatedAt, s.UpdatedAt, s.CompletedAt,
 	)
@@ -51,7 +51,7 @@ func (r *ScanRepo) Create(ctx context.Context, s *model.Scan) error {
 
 func (r *ScanRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Scan, error) {
 	s, err := r.scanRow(ctx,
-		`SELECT id, organization_id, district, city, latitude, longitude, status,
+		`SELECT id, organization_id, neighbourhood, district, city, latitude, longitude, status,
 		        accessibility_score, issues, street_view_url, anonymized_image_url,
 		        error_message, requested_by, created_at, updated_at, completed_at
 		 FROM scans WHERE id=$1`, id)
@@ -71,7 +71,7 @@ func (r *ScanRepo) ListByOrg(ctx context.Context, orgID uuid.UUID, offset, limit
 	}
 
 	rows, err := r.db.Query(ctx,
-		`SELECT id, organization_id, district, city, latitude, longitude, status,
+		`SELECT id, organization_id, neighbourhood, district, city, latitude, longitude, status,
 		        accessibility_score, issues, street_view_url, anonymized_image_url,
 		        error_message, requested_by, created_at, updated_at, completed_at
 		 FROM scans WHERE organization_id=$1
@@ -121,7 +121,7 @@ func (r *ScanRepo) scanRowFromRow(row pgx.Row) (*model.Scan, error) {
 	var s model.Scan
 	var issuesJSON []byte
 	if err := row.Scan(
-		&s.ID, &s.OrganizationID, &s.District, &s.City, &s.Latitude, &s.Longitude, &s.Status,
+		&s.ID, &s.OrganizationID, &s.Neighbourhood, &s.District, &s.City, &s.Latitude, &s.Longitude, &s.Status,
 		&s.AccessibilityScore, &issuesJSON, &s.StreetViewURL, &s.AnonymizedImageURL,
 		&s.ErrorMessage, &s.RequestedBy, &s.CreatedAt, &s.UpdatedAt, &s.CompletedAt,
 	); err != nil {
@@ -211,7 +211,7 @@ func (r *ScanRepo) scanRowFromRows(rows pgx.Rows) (*model.Scan, error) {
 	var s model.Scan
 	var issuesJSON []byte
 	if err := rows.Scan(
-		&s.ID, &s.OrganizationID, &s.District, &s.City, &s.Latitude, &s.Longitude, &s.Status,
+		&s.ID, &s.OrganizationID, &s.Neighbourhood, &s.District, &s.City, &s.Latitude, &s.Longitude, &s.Status,
 		&s.AccessibilityScore, &issuesJSON, &s.StreetViewURL, &s.AnonymizedImageURL,
 		&s.ErrorMessage, &s.RequestedBy, &s.CreatedAt, &s.UpdatedAt, &s.CompletedAt,
 	); err != nil {

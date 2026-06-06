@@ -13,6 +13,7 @@ export interface AccessibilityIssue {
 export interface Scan {
   id: string;
   organization_id: string;
+  neighbourhood?: string;
   district: string;
   city: string;
   latitude: number;
@@ -34,6 +35,7 @@ export interface CreateScanRequest {
   city: string;
   latitude: number;
   longitude: number;
+  neighbourhood?: string;
 }
 
 export interface PaginatedResponse<T> {

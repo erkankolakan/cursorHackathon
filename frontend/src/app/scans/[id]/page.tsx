@@ -87,9 +87,13 @@ export default function ScanDetailPage() {
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <div className="flex flex-col sm:flex-row sm:items-start gap-4 justify-between">
             <div>
-              <h1 className="text-2xl font-black text-white">{scan.district}</h1>
-              <p className="text-slate-400">{scan.city}</p>
-              <p className="text-slate-600 text-sm mt-1">
+              <h1 className="text-2xl font-black text-white">
+                {scan.neighbourhood ? scan.neighbourhood : scan.district}
+              </h1>
+              <p className="text-slate-400">
+                {scan.neighbourhood ? `${scan.district} — ${scan.city}` : scan.city}
+              </p>
+              <p className="text-slate-600 text-sm mt-1 font-mono">
                 {scan.latitude.toFixed(5)}, {scan.longitude.toFixed(5)}
               </p>
             </div>

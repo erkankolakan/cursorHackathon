@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { login, register, setAuthToken, setOrgId, loadStoredAuth, isAuthenticated } from "@/lib/api";
+import { register, setupSession, loadStoredAuth, isAuthenticated } from "@/lib/api";
 import Dashboard from "@/components/Dashboard";
 
 export default function Home() {
@@ -21,9 +21,7 @@ export default function Home() {
     setLoading(true);
     setError("");
     try {
-      const tokens = await login(form.email, form.password);
-      setAuthToken(tokens.access_token);
-      if (form.org_id) setOrgId(form.org_id);
+      await setupSession(form.email, form.password, form.org_id || undefined);
       setAuthed(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Giriş başarısız");
@@ -37,10 +35,19 @@ export default function Home() {
     setLoading(true);
     setError("");
     try {
-      await register({ email: form.email, password: form.password, first_name: form.first_name, last_name: form.last_name });
-      const tokens = await login(form.email, form.password);
-      setAuthToken(tokens.access_token);
-      if (form.org_id) setOrgId(form.org_id);
+      if (form.password.length < 8) {
+        throw new Error("Şifre en az 8 karakter olmalı");
+      }
+      if (!form.first_name.trim() || !form.last_name.trim()) {
+        throw new Error("Ad ve soyad zorunludur");
+      }
+      await register({
+        email: form.email,
+        password: form.password,
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
+      });
+      await setupSession(form.email, form.password, form.org_id || undefined);
       setAuthed(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Kayıt başarısız");
@@ -110,7 +117,7 @@ export default function Home() {
             />
             <input
               type="password"
-              placeholder="Şifre"
+              placeholder="Şifre (min. 8 karakter)"
               required
               value={form.password}
               onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
@@ -118,7 +125,7 @@ export default function Home() {
             />
             <input
               type="text"
-              placeholder="Organizasyon ID (UUID)"
+              placeholder="Organizasyon ID (opsiyonel — boş bırakılırsa otomatik oluşturulur)"
               value={form.org_id}
               onChange={e => setForm(f => ({ ...f, org_id: e.target.value }))}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"

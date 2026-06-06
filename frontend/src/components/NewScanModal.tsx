@@ -15,9 +15,10 @@ interface NewScanModalProps {
   onClose: () => void;
   onSubmit: (data: { district: string; city: string; latitude: number; longitude: number }) => void;
   loading: boolean;
+  error?: string;
 }
 
-export default function NewScanModal({ onClose, onSubmit, loading }: NewScanModalProps) {
+export default function NewScanModal({ onClose, onSubmit, loading, error }: NewScanModalProps) {
   const [form, setForm] = useState({
     district: "",
     city: "İstanbul",
@@ -115,6 +116,12 @@ export default function NewScanModal({ onClose, onSubmit, loading }: NewScanModa
           <div className="bg-blue-950/30 border border-blue-900 rounded-lg p-3 text-xs text-blue-300">
             <strong>KVKK Uyarısı:</strong> AI analizi sırasında görüntülerdeki tüm yüzler ve araç plakaları geri döndürülemez biçimde anonimleştirilecektir.
           </div>
+
+          {error && (
+            <div className="bg-red-950 border border-red-800 rounded-lg px-3 py-2 text-red-400 text-sm">
+              {error}
+            </div>
+          )}
 
           <button
             type="submit"

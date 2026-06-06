@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { listScans, createScan, type Scan } from "@/lib/api";
+import { listScans, createScan, loadStoredAuth, type Scan } from "@/lib/api";
 import ScanCard from "./ScanCard";
 import NewScanModal from "./NewScanModal";
 import StatsBar from "./StatsBar";
@@ -12,6 +12,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showNewScan, setShowNewScan] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [scanError, setScanError] = useState("");
   const [activeTab, setActiveTab] = useState<"list" | "map">("list");
   const [selectedScan, setSelectedScan] = useState<Scan | null>(null);
 
@@ -27,17 +28,20 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    loadStoredAuth();
     loadScans();
   }, [loadScans]);
 
   async function handleCreateScan(data: { district: string; city: string; latitude: number; longitude: number }) {
     setCreating(true);
+    setScanError("");
     try {
+      loadStoredAuth();
       const scan = await createScan(data);
       setScans(prev => [scan, ...prev]);
       setShowNewScan(false);
     } catch (err) {
-      console.error(err);
+      setScanError(err instanceof Error ? err.message : "Tarama başlatılamadı");
     } finally {
       setCreating(false);
     }
@@ -129,9 +133,10 @@ export default function Dashboard() {
 
       {showNewScan && (
         <NewScanModal
-          onClose={() => setShowNewScan(false)}
+          onClose={() => { setShowNewScan(false); setScanError(""); }}
           onSubmit={handleCreateScan}
           loading={creating}
+          error={scanError}
         />
       )}
 

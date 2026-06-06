@@ -193,7 +193,9 @@ export default function NewScanModal({ onClose, onSubmit, onUpload, loading, err
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const ext = file.name.toLowerCase();
+    const hasAllowedExt = [".jpg", ".jpeg", ".png", ".webp"].some((e) => ext.endsWith(e));
+    if (!ALLOWED_TYPES.includes(file.type) && file.type !== "application/octet-stream" && !hasAllowedExt) {
       setUploadError("Sadece JPEG, PNG veya WebP dosyaları desteklenir.");
       return;
     }

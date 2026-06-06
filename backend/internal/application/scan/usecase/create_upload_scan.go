@@ -8,6 +8,8 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -117,7 +119,11 @@ func (uc *CreateUploadScanUseCase) callAIService(ctx context.Context, imageBytes
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	part, err := writer.CreateFormFile("image", filename)
+	partHeader := make(textproto.MIMEHeader)
+	partHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="image"; filename="%s"`, filename))
+	partHeader.Set("Content-Type", contentTypeFromFilename(filename))
+
+	part, err := writer.CreatePart(partHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -150,4 +156,18 @@ func (uc *CreateUploadScanUseCase) callAIService(ctx context.Context, imageBytes
 		return nil, fmt.Errorf("failed to parse AI service response: %w", err)
 	}
 	return &result, nil
+}
+
+func contentTypeFromFilename(filename string) string {
+	lower := strings.ToLower(filename)
+	switch {
+	case strings.HasSuffix(lower, ".jpg"), strings.HasSuffix(lower, ".jpeg"):
+		return "image/jpeg"
+	case strings.HasSuffix(lower, ".png"):
+		return "image/png"
+	case strings.HasSuffix(lower, ".webp"):
+		return "image/webp"
+	default:
+		return "application/octet-stream"
+	}
 }

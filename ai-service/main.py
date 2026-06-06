@@ -136,23 +136,50 @@ async def analyze(req: AnalyzeRequest):
         return _demo_response(req.latitude, req.longitude, street_view_url)
 
 
+def _resolve_image_type(content_type: str, filename: str, data: bytes) -> str | None:
+    """MIME tipi, dosya adı veya magic byte'lardan görüntü formatını belirler."""
+    normalized = (content_type or "").split(";")[0].strip().lower()
+    if normalized in ALLOWED_IMAGE_TYPES:
+        return normalized
+
+    name = (filename or "").lower()
+    if name.endswith((".jpg", ".jpeg")):
+        return "image/jpeg"
+    if name.endswith(".png"):
+        return "image/png"
+    if name.endswith(".webp"):
+        return "image/webp"
+
+    if len(data) >= 3 and data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if len(data) >= 8 and data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+
+    return None
+
+
 @app.post("/analyze/upload", response_model=AnalyzeResponse)
 async def analyze_upload(image: UploadFile = File(...)):
     """Kurum tarafından yüklenen fotoğrafı analiz eder."""
-    content_type = (image.content_type or "").lower()
-    if content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail="Desteklenen formatlar: JPEG, PNG, WebP",
-        )
-
     image_bytes = await image.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Boş dosya yüklenemez")
     if len(image_bytes) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=400, detail="Dosya boyutu 10 MB'ı aşamaz")
 
-    logger.info(f"Analyzing uploaded image: {image.filename}, size={len(image_bytes)} bytes")
+    resolved_type = _resolve_image_type(image.content_type or "", image.filename or "", image_bytes)
+    if resolved_type is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Desteklenen formatlar: JPEG, PNG, WebP",
+        )
+
+    logger.info(
+        f"Analyzing uploaded image: {image.filename}, "
+        f"type={resolved_type}, size={len(image_bytes)} bytes"
+    )
     return _analyze_image_bytes(image_bytes)
 
 

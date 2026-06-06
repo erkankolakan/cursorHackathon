@@ -1,0 +1,76 @@
+# KentScan — Render Blueprint
+# Backend (Go) + AI Service (FastAPI) + PostgreSQL
+# Docs: https://render.com/docs/blueprint-spec
+
+databases:
+  - name: kentscan-db
+    databaseName: kentscan
+    user: kentscan
+    plan: free
+    region: frankfurt
+    ipAllowList: [] # Herkese açık (Render varsayılanı)
+
+services:
+  # ── AI Microservice (YOLO + KVKK pipeline) ──────────────────────────────
+  - type: web
+    name: kentscan-ai
+    runtime: docker
+    region: frankfurt
+    plan: starter # PyTorch/YOLO için min. 512 MB; yoğun yükte Standard önerilir
+    dockerfilePath: ai-service/Dockerfile
+    dockerContext: ai-service
+    healthCheckPath: /health
+    envVars:
+      - key: GOOGLE_STREET_VIEW_API_KEY
+        sync: false # Dashboard'dan manuel girilir
+      - key: AI_SERVICE_PORT
+        value: "8001"
+
+  # ── Backend API (Go / masterfabric-go) ──────────────────────────────────
+  - type: web
+    name: kentscan-backend
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: backend/deployments/Dockerfile
+    dockerContext: backend
+    healthCheckPath: /health/live
+    preDeployCommand: goose -dir /app/migrations postgres "$DATABASE_URL" up
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kentscan-db
+          property: connectionString
+      - key: DB_HOST
+        fromDatabase:
+          name: kentscan-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: kentscan-db
+          property: port
+      - key: DB_USER
+        fromDatabase:
+          name: kentscan-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: kentscan-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: kentscan-db
+          property: database
+      - key: DB_SSLMODE
+        value: require
+      - key: SERVER_HOST
+        value: 0.0.0.0
+      - key: JWT_SECRET
+        generateValue: true
+      - key: KAFKA_ENABLED
+        value: "false"
+      - key: AI_SERVICE_URL
+        fromService:
+          type: web
+          name: kentscan-ai
+          envVarKey: RENDER_EXTERNAL_URL

@@ -57,7 +57,7 @@ Seçenekler:
 npm start "src altında toplama(a,b) olan bir math.ts oluştur"
 npm start --no-plan "README.md'ye kurulum bölümü ekle"
 npm start --plan-only "kullanıcı kimlik doğrulama akışı ekle"
-npm start --cwd ../mobile "ana ekrana karanlık mod düğmesi ekle"
+npm start --cwd ../frontend "dashboard sayfasına karanlık mod düğmesi ekle"
 ```
 
 ## Tasarım kararları (senior notlar)

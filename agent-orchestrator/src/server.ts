@@ -1,7 +1,7 @@
 /**
  * KentScan Agent Orchestrator — HTTP API Server
  *
- * Cursor SDK'yı HTTP üzerinden expose eder. Mobile app ve diğer servisler
+ * Cursor SDK'yı HTTP üzerinden expose eder. Frontend ve diğer servisler
  * bu endpoint üzerinden AI görevleri tetikleyebilir.
  *
  * Bonus puan: Cursor CLI + SDK entegrasyonu belgeli.

@@ -46,12 +46,6 @@ Türkiye'deki 8.5 milyon engelli vatandaş için **5378 Sayılı Engelliler Kanu
 └─────────────────────────────┘     └──────────────────────────┘     └────────────────────────┘
                                                ▲
                                     ┌──────────┴────────────┐
-                                    │  Expo Mobile          │
-                                    │  GPS + SecureStore    │
-                                    │  Async polling        │
-                                    └───────────────────────┘
-                                               ▲
-                                    ┌──────────┴────────────┐
                                     │  agent-orchestrator   │
                                     │  Cursor SDK HTTP API  │
                                     │  POST /v1/agent/prompt│
@@ -67,7 +61,6 @@ Türkiye'deki 8.5 milyon engelli vatandaş için **5378 Sayılı Engelliler Kanu
 | Frontend | Next.js 16 + Tailwind CSS 4 + Recharts + Leaflet + jsPDF | Vercel |
 | Backend | Go 1.25 (masterfabric-go) + Async Goroutine | Render.com |
 | AI Servis | Python 3.11 + FastAPI + YOLO11 + OpenCV | Render.com |
-| Mobile | Expo 56 (React Native) + expo-location + expo-secure-store | — |
 | Orchestrator | Cursor SDK (@cursor/sdk) + HTTP API Server | Local / Render |
 | DB | PostgreSQL (13 migration) | Render.com |
 | Cache | Redis | Render.com |
@@ -104,14 +97,6 @@ cd frontend
 cp .env.local.example .env.local  # yoksa: echo "NEXT_PUBLIC_API_URL=http://localhost:8080" > .env.local
 npm install && npm run dev
 # Çalışır: http://localhost:3000
-```
-
-### Mobile
-```bash
-cd mobile
-cp .env.example .env
-npm install
-npx expo start
 ```
 
 ### Agent Orchestrator
@@ -286,6 +271,5 @@ feat(frontend): Recharts analytics with trend/pie/bar/radial charts
 feat(frontend): Leaflet interactive map with colored scan pins
 feat(frontend): PDF/CSV report export with jsPDF
 feat(frontend): KVKK anonymized image display with badge
-feat(mobile): GPS auto-fill with expo-location + SecureStore auth
 feat(orchestrator): HTTP API server for Cursor SDK (bonus)
 ```

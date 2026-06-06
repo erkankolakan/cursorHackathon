@@ -17,7 +17,6 @@ KentScan, Google Street View + HuggingFace modelleri kullanarak Türk belediyele
 | Backend | Go (masterfabric-go) | `backend/` |
 | AI Servis | Python FastAPI | `ai-service/` |
 | Frontend | Next.js 14 | `frontend/` |
-| Mobile | Expo (React Native) | `mobile/` |
 | Orchestrator | Cursor SDK | `agent-orchestrator/` |
 
 ## Geliştirme Kuralları

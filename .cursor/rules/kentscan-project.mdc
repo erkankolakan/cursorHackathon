@@ -1,0 +1,55 @@
+---
+description: KentScan proje genelinde geçerli AI-driven geliştirme kuralları
+alwaysApply: true
+---
+
+# KentScan — AI-Driven Kentsel Erişilebilirlik Denetim Platformu
+
+## Proje Özeti
+
+KentScan, Google Street View + HuggingFace modelleri kullanarak Türk belediyelerinin
+5378 Sayılı Engelliler Kanunu erişilebilirlik uyumluluğunu otomatik denetleyen bir platformdur.
+
+## Bileşenler
+
+| Bileşen | Teknoloji | Dizin |
+|---------|-----------|-------|
+| Backend | Go (masterfabric-go) | `backend/` |
+| AI Servis | Python FastAPI | `ai-service/` |
+| Frontend | Next.js 14 | `frontend/` |
+| Mobile | Expo (React Native) | `mobile/` |
+| Orchestrator | Cursor SDK | `agent-orchestrator/` |
+
+## Geliştirme Kuralları
+
+### Commit Disiplini
+
+- Her özellik için anlamlı commit mesajları: `feat(scan): add accessibility scoring`
+- Tek seferlik büyük commit yasak (jüri commit log'u inceler).
+
+### AI-First Geliştirme
+
+- Cursor IDE ile Agentic mode kullanılır.
+- Her bounded context için `.cursor/rules/` altında rule dosyası bulunur.
+- Cursor SDK orchestrator bonus puan için belgelenir.
+
+### KVKK Kırmızı Çizgiler
+
+- Kimlik tespiti, yüz tanıma, plaka okuma YASAK.
+- Sadece cansız kentsel objeler: rampa, kaldırım, çukur, tabela.
+- Ham görüntü verisi encrypt edilmeden buluta yüklenemez.
+- Hackathon sonunda tüm ham görüntüler silinmeli ve belgelenmeli.
+
+### Hosting
+
+- Frontend → Vercel (`frontend/` dizini)
+- Backend + AI Servis → Render.com
+
+## Puanlama Odak Noktaları (100 puan)
+
+- Teknik Çalışırlık (30p): Canlı demo, migration çalışır, API'ler cevap verir.
+- Doğruluk ve Güvenilirlik (25p): HuggingFace modelleri gerçek sonuç üretir.
+- Kamu Faydasına Uygunluk (20p): Belediye müşterisi, yasal uyumluluk.
+- AI Adaptasyonu (10p): Cursor rules, agent-orchestrator Cursor SDK.
+- KVKK Uyum (10p): Blur pipeline, veri minimizasyonu.
+- Sunum ve Dokümantasyon (5p): README, Cursor dokümantasyonu.

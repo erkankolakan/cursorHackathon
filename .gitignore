@@ -1,0 +1,5 @@
+ai-service/venv/
+ai-service/.env
+ai-service/__pycache__/
+ai-service/services/__pycache__/
+ai-service/models/*.pt

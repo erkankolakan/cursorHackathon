@@ -40,10 +40,39 @@ const (
 
 // AccessibilityIssue is a single problem detected in a scanned location.
 type AccessibilityIssue struct {
-	Type        IssueType     `json:"type"`
-	Severity    IssueSeverity `json:"severity"`
-	Description string        `json:"description"`
-	Confidence  float64       `json:"confidence"`
+	Type           IssueType     `json:"type"`
+	Severity       IssueSeverity `json:"severity"`
+	Description    string        `json:"description"`
+	Confidence     float64       `json:"confidence"`
+	Recommendation string        `json:"recommendation,omitempty"`
+	LegalReference string        `json:"legal_reference,omitempty"`
+	EstimatedCost  int           `json:"estimated_cost,omitempty"`
+}
+
+// OrgStats holds aggregated statistics for an organisation's scans.
+type OrgStats struct {
+	TotalScans        int            `json:"total_scans"`
+	CriticalCount     int            `json:"critical_count"`
+	HighCount         int            `json:"high_count"`
+	AvgScore          float64        `json:"avg_score"`
+	ComplianceRate    float64        `json:"compliance_rate"`
+	DistrictBreakdown []DistrictStat `json:"district_breakdown"`
+	TrendData         []TrendPoint   `json:"trend_data"`
+}
+
+// DistrictStat holds per-district aggregated data.
+type DistrictStat struct {
+	District       string  `json:"district"`
+	ScanCount      int     `json:"scan_count"`
+	AvgScore       float64 `json:"avg_score"`
+	ComplianceRate float64 `json:"compliance_rate"`
+}
+
+// TrendPoint represents a daily score aggregate.
+type TrendPoint struct {
+	Date  string  `json:"date"`
+	Score float64 `json:"score"`
+	Count int     `json:"count"`
 }
 
 // Scan represents a single accessibility audit job for a geographic location.

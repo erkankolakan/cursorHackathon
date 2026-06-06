@@ -7,13 +7,14 @@ Pipeline:
   2. KVKK: yüz + plaka blur (OpenCV)
   3. YOLO11 sidewalk-seg ile engel tespiti
   4. Erişilebilirlik skoru hesapla
-  5. Sonucu döndür
+  5. Türkçe öneriler + yasal referans + maliyet tahmini
+  6. Sonucu döndür
 """
 
 import os
 import base64
 import logging
-from typing import Optional
+from typing import Optional, Any
 
 import httpx
 import numpy as np
@@ -36,7 +37,7 @@ logger = logging.getLogger("kentscan-ai")
 app = FastAPI(
     title="KentScan AI Service",
     description="AI destekli kentsel erişilebilirlik denetim motoru",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -65,6 +66,9 @@ class AccessibilityIssue(BaseModel):
     severity: str
     description: str
     confidence: float
+    recommendation: Optional[str] = None
+    legal_reference: Optional[str] = None
+    estimated_cost: Optional[int] = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -72,12 +76,13 @@ class AnalyzeResponse(BaseModel):
     issues: list[AccessibilityIssue]
     street_view_url: str
     anonymized_image_url: str
+    total_estimated_cost: Optional[int] = None
     error: Optional[str] = None
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "kentscan-ai"}
+    return {"status": "ok", "service": "kentscan-ai", "version": "2.0.0"}
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
@@ -90,7 +95,6 @@ async def analyze(req: AnalyzeRequest):
         image_bytes = await gsv_client.fetch_image(req.latitude, req.longitude)
     except Exception as e:
         logger.error(f"GSV fetch failed: {e}")
-        # Demo modu: GSV API anahtarı yoksa demo veri döndür
         return _demo_response(req.latitude, req.longitude, street_view_url)
 
     # KVKK: yüz ve plaka anonimleştirme
@@ -111,21 +115,25 @@ async def analyze(req: AnalyzeRequest):
 
     issues = scorer.detections_to_issues(detections)
     score = scorer.calculate_score(issues)
+    total_cost = scorer.calculate_total_cost(issues)
 
-    logger.info(f"Analysis complete: score={score}, issues={len(issues)}")
+    logger.info(f"Analysis complete: score={score}, issues={len(issues)}, total_cost={total_cost}")
 
     return AnalyzeResponse(
         accessibility_score=score,
         issues=[AccessibilityIssue(**i) for i in issues],
         street_view_url=street_view_url,
         anonymized_image_url=anonymized_b64,
+        total_estimated_cost=total_cost,
     )
 
 
 def _demo_response(lat: float, lng: float, street_view_url: str) -> AnalyzeResponse:
-    """Demo API anahtarı yokken gerçekçi demo veri döndürür."""
+    """Demo modunda gerçekçi veri döndürür (GSV API anahtarı yoksa)."""
     import random
     random.seed(int(abs(lat * 1000 + lng * 100)))
+
+    from services.scorer import RECOMMENDATIONS, LEGAL_REFERENCES, ESTIMATED_COSTS
 
     demo_issues_pool = [
         {"type": "missing_ramp", "severity": "critical", "description": "Yaya geçidinde tekerlekli sandalye rampası tespit edilemedi", "confidence": 0.91},
@@ -138,13 +146,26 @@ def _demo_response(lat: float, lng: float, street_view_url: str) -> AnalyzeRespo
 
     num_issues = random.randint(1, 4)
     selected = random.sample(demo_issues_pool, num_issues)
-    score = random.randint(20, 85)
+
+    # Enrich with legal/recommendation/cost
+    enriched = []
+    for issue in selected:
+        enriched.append({
+            **issue,
+            "recommendation": RECOMMENDATIONS.get(issue["type"], "Yetkili belediye birimi tarafından değerlendirme yapılmalıdır."),
+            "legal_reference": LEGAL_REFERENCES.get(issue["type"], "5378 Sayılı Engelliler Kanunu"),
+            "estimated_cost": ESTIMATED_COSTS.get(issue["type"], 20000),
+        })
+
+    score = scorer.calculate_score(enriched)
+    total_cost = scorer.calculate_total_cost(enriched)
 
     return AnalyzeResponse(
         accessibility_score=score,
-        issues=[AccessibilityIssue(**i) for i in selected],
+        issues=[AccessibilityIssue(**i) for i in enriched],
         street_view_url=street_view_url,
         anonymized_image_url="",
+        total_estimated_cost=total_cost,
     )
 
 

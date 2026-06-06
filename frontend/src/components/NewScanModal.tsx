@@ -128,7 +128,7 @@ export default function NewScanModal({ onClose, onSubmit, loading, error }: NewS
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors"
           >
-            {loading ? "AI analizi yapılıyor... (60-90 sn)" : "Taramayı Başlat"}
+            {loading ? "Tarama başlatılıyor..." : "Taramayı Başlat (AI arka planda çalışır)"}
           </button>
         </form>
       </div>

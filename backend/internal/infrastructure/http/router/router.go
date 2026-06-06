@@ -182,6 +182,7 @@ func New(deps Dependencies) *chi.Mux {
 				r.Route("/scans", func(r chi.Router) {
 					r.Post("/", deps.ScanHandler.CreateScan)
 					r.Get("/", deps.ScanHandler.ListScans)
+					r.Get("/stats", deps.ScanHandler.GetStats)
 					r.Get("/{id}", deps.ScanHandler.GetScan)
 				})
 			}

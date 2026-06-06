@@ -266,7 +266,8 @@ func buildDependencies(
 	createScanUC := scanUC.NewCreateScanUseCase(scanRepo, aiServiceURL)
 	listScansUC := scanUC.NewListScansUseCase(scanRepo)
 	getScanUC := scanUC.NewGetScanUseCase(scanRepo)
-	deps.ScanHandler = scanHandler.NewHandler(createScanUC, listScansUC, getScanUC)
+	getStatsUC := scanUC.NewGetStatsUseCase(scanRepo)
+	deps.ScanHandler = scanHandler.NewHandler(createScanUC, listScansUC, getScanUC, getStatsUC)
 
 	// --- Handlers ---
 	deps.IAMHandler = iamHandler.NewHandler(registerUC, loginUC, assignRoleUC, userRepo)

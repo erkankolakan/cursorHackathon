@@ -133,6 +133,80 @@ func (r *ScanRepo) scanRowFromRow(row pgx.Row) (*model.Scan, error) {
 	return &s, nil
 }
 
+func (r *ScanRepo) GetOrgStats(ctx context.Context, orgID uuid.UUID) (*model.OrgStats, error) {
+	stats := &model.OrgStats{}
+
+	// Total, avg score, compliance rate
+	err := r.db.QueryRow(ctx, `
+		SELECT
+			COUNT(*) AS total_scans,
+			COALESCE(AVG(accessibility_score), 0) AS avg_score,
+			COALESCE(
+				100.0 * SUM(CASE WHEN accessibility_score >= 80 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0),
+				0
+			) AS compliance_rate,
+			SUM(CASE WHEN accessibility_score < 60 THEN 1 ELSE 0 END) AS critical_count,
+			SUM(CASE WHEN accessibility_score >= 60 AND accessibility_score < 80 THEN 1 ELSE 0 END) AS high_count
+		FROM scans
+		WHERE organization_id = $1 AND status = 'completed'`, orgID,
+	).Scan(&stats.TotalScans, &stats.AvgScore, &stats.ComplianceRate, &stats.CriticalCount, &stats.HighCount)
+	if err != nil {
+		return nil, domainErr.New(domainErr.ErrInternal, "failed to get org stats", err)
+	}
+
+	// District breakdown
+	rows, err := r.db.Query(ctx, `
+		SELECT
+			district,
+			COUNT(*) AS scan_count,
+			COALESCE(AVG(accessibility_score), 0) AS avg_score,
+			COALESCE(
+				100.0 * SUM(CASE WHEN accessibility_score >= 80 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0),
+				0
+			) AS compliance_rate
+		FROM scans
+		WHERE organization_id = $1 AND status = 'completed'
+		GROUP BY district
+		ORDER BY scan_count DESC
+		LIMIT 10`, orgID)
+	if err != nil {
+		return nil, domainErr.New(domainErr.ErrInternal, "failed to get district stats", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var d model.DistrictStat
+		if err := rows.Scan(&d.District, &d.ScanCount, &d.AvgScore, &d.ComplianceRate); err != nil {
+			continue
+		}
+		stats.DistrictBreakdown = append(stats.DistrictBreakdown, d)
+	}
+
+	// Daily trend (last 14 days)
+	trendRows, err := r.db.Query(ctx, `
+		SELECT
+			TO_CHAR(DATE_TRUNC('day', created_at), 'YYYY-MM-DD') AS date,
+			COALESCE(AVG(accessibility_score), 0) AS avg_score,
+			COUNT(*) AS scan_count
+		FROM scans
+		WHERE organization_id = $1 AND status = 'completed'
+		  AND created_at >= NOW() - INTERVAL '14 days'
+		GROUP BY DATE_TRUNC('day', created_at)
+		ORDER BY DATE_TRUNC('day', created_at) ASC`, orgID)
+	if err != nil {
+		return nil, domainErr.New(domainErr.ErrInternal, "failed to get trend data", err)
+	}
+	defer trendRows.Close()
+	for trendRows.Next() {
+		var t model.TrendPoint
+		if err := trendRows.Scan(&t.Date, &t.Score, &t.Count); err != nil {
+			continue
+		}
+		stats.TrendData = append(stats.TrendData, t)
+	}
+
+	return stats, nil
+}
+
 func (r *ScanRepo) scanRowFromRows(rows pgx.Rows) (*model.Scan, error) {
 	var s model.Scan
 	var issuesJSON []byte

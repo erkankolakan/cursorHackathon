@@ -17,21 +17,22 @@ type CreateScanRequest struct {
 
 // ScanResponse is the API representation of a Scan.
 type ScanResponse struct {
-	ID                 uuid.UUID                    `json:"id"`
-	OrganizationID     uuid.UUID                    `json:"organization_id"`
-	District           string                       `json:"district"`
-	City               string                       `json:"city"`
-	Latitude           float64                      `json:"latitude"`
-	Longitude          float64                      `json:"longitude"`
-	Status             string                       `json:"status"`
-	AccessibilityScore int                          `json:"accessibility_score"`
-	ComplianceLevel    string                       `json:"compliance_level"`
-	Issues             []model.AccessibilityIssue   `json:"issues"`
-	StreetViewURL      string                       `json:"street_view_url,omitempty"`
-	ErrorMessage       string                       `json:"error_message,omitempty"`
-	RequestedBy        uuid.UUID                    `json:"requested_by"`
-	CreatedAt          time.Time                    `json:"created_at"`
-	CompletedAt        *time.Time                   `json:"completed_at,omitempty"`
+	ID                 uuid.UUID                  `json:"id"`
+	OrganizationID     uuid.UUID                  `json:"organization_id"`
+	District           string                     `json:"district"`
+	City               string                     `json:"city"`
+	Latitude           float64                    `json:"latitude"`
+	Longitude          float64                    `json:"longitude"`
+	Status             string                     `json:"status"`
+	AccessibilityScore int                        `json:"accessibility_score"`
+	ComplianceLevel    string                     `json:"compliance_level"`
+	Issues             []model.AccessibilityIssue `json:"issues"`
+	StreetViewURL      string                     `json:"street_view_url,omitempty"`
+	AnonymizedImageURL string                     `json:"anonymized_image_url,omitempty"`
+	ErrorMessage       string                     `json:"error_message,omitempty"`
+	RequestedBy        uuid.UUID                  `json:"requested_by"`
+	CreatedAt          time.Time                  `json:"created_at"`
+	CompletedAt        *time.Time                 `json:"completed_at,omitempty"`
 }
 
 // ToResponse converts a domain Scan model to a ScanResponse DTO.
@@ -48,6 +49,7 @@ func ToResponse(s *model.Scan) ScanResponse {
 		ComplianceLevel:    s.ComplianceLevel(),
 		Issues:             s.Issues,
 		StreetViewURL:      s.StreetViewURL,
+		AnonymizedImageURL: s.AnonymizedImageURL,
 		ErrorMessage:       s.ErrorMessage,
 		RequestedBy:        s.RequestedBy,
 		CreatedAt:          s.CreatedAt,

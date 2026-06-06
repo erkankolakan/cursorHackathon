@@ -18,11 +18,33 @@ type Handler struct {
 	createUC *usecase.CreateScanUseCase
 	listUC   *usecase.ListScansUseCase
 	getUC    *usecase.GetScanUseCase
+	statsUC  *usecase.GetStatsUseCase
 }
 
 // NewHandler creates a new scan HTTP handler.
-func NewHandler(createUC *usecase.CreateScanUseCase, listUC *usecase.ListScansUseCase, getUC *usecase.GetScanUseCase) *Handler {
-	return &Handler{createUC: createUC, listUC: listUC, getUC: getUC}
+func NewHandler(
+	createUC *usecase.CreateScanUseCase,
+	listUC *usecase.ListScansUseCase,
+	getUC *usecase.GetScanUseCase,
+	statsUC *usecase.GetStatsUseCase,
+) *Handler {
+	return &Handler{createUC: createUC, listUC: listUC, getUC: getUC, statsUC: statsUC}
+}
+
+func resolveOrgID(r *http.Request) (uuid.UUID, bool) {
+	orgID, ok := middleware.OrgIDFromContext(r.Context())
+	if ok && orgID != uuid.Nil {
+		return orgID, true
+	}
+	orgIDStr := r.Header.Get("X-Organization-ID")
+	if orgIDStr == "" {
+		return uuid.Nil, false
+	}
+	parsed, err := uuid.Parse(orgIDStr)
+	if err != nil {
+		return uuid.Nil, false
+	}
+	return parsed, true
 }
 
 // CreateScan handles POST /api/v1/scans
@@ -33,19 +55,10 @@ func (h *Handler) CreateScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orgID, ok := middleware.OrgIDFromContext(r.Context())
-	if !ok || orgID == uuid.Nil {
-		orgIDStr := r.Header.Get("X-Organization-ID")
-		if orgIDStr == "" {
-			response.JSON(w, http.StatusBadRequest, map[string]string{"error": "X-Organization-ID header required"})
-			return
-		}
-		parsed, err := uuid.Parse(orgIDStr)
-		if err != nil {
-			response.JSON(w, http.StatusBadRequest, map[string]string{"error": "invalid organization id"})
-			return
-		}
-		orgID = parsed
+	orgID, ok := resolveOrgID(r)
+	if !ok {
+		response.JSON(w, http.StatusBadRequest, map[string]string{"error": "X-Organization-ID header required"})
+		return
 	}
 
 	var req dto.CreateScanRequest
@@ -65,19 +78,10 @@ func (h *Handler) CreateScan(w http.ResponseWriter, r *http.Request) {
 
 // ListScans handles GET /api/v1/scans
 func (h *Handler) ListScans(w http.ResponseWriter, r *http.Request) {
-	orgID, ok := middleware.OrgIDFromContext(r.Context())
-	if !ok || orgID == uuid.Nil {
-		orgIDStr := r.Header.Get("X-Organization-ID")
-		if orgIDStr == "" {
-			response.JSON(w, http.StatusBadRequest, map[string]string{"error": "X-Organization-ID header required"})
-			return
-		}
-		parsed, err := uuid.Parse(orgIDStr)
-		if err != nil {
-			response.JSON(w, http.StatusBadRequest, map[string]string{"error": "invalid organization id"})
-			return
-		}
-		orgID = parsed
+	orgID, ok := resolveOrgID(r)
+	if !ok {
+		response.JSON(w, http.StatusBadRequest, map[string]string{"error": "X-Organization-ID header required"})
+		return
 	}
 
 	params := pagination.FromRequest(r)
@@ -100,11 +104,30 @@ func (h *Handler) GetScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scan, err := h.getUC.Execute(r.Context(), id)
+	orgID, _ := resolveOrgID(r)
+
+	scan, err := h.getUC.Execute(r.Context(), id, orgID)
 	if err != nil {
 		response.Error(w, err)
 		return
 	}
 
 	response.JSON(w, http.StatusOK, scan)
+}
+
+// GetStats handles GET /api/v1/scans/stats
+func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := resolveOrgID(r)
+	if !ok {
+		response.JSON(w, http.StatusBadRequest, map[string]string{"error": "X-Organization-ID header required"})
+		return
+	}
+
+	stats, err := h.statsUC.Execute(r.Context(), orgID)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, stats)
 }

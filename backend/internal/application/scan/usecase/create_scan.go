@@ -12,7 +12,6 @@ import (
 	"github.com/masterfabric-go/masterfabric/internal/application/scan/dto"
 	"github.com/masterfabric-go/masterfabric/internal/domain/scan/model"
 	"github.com/masterfabric-go/masterfabric/internal/domain/scan/repository"
-	domainErr "github.com/masterfabric-go/masterfabric/internal/shared/errors"
 )
 
 // CreateScanUseCase orchestrates creating a scan job and dispatching it to the AI service.
@@ -36,7 +35,7 @@ type aiAnalyzeRequest struct {
 	Longitude float64 `json:"longitude"`
 }
 
-// Execute creates a pending scan record, calls the AI service, and persists the result.
+// Execute creates a pending scan record and immediately returns; AI analysis runs in background.
 func (uc *CreateScanUseCase) Execute(ctx context.Context, orgID uuid.UUID, userID uuid.UUID, req dto.CreateScanRequest) (*dto.ScanResponse, error) {
 	scan := &model.Scan{
 		OrganizationID: orgID,
@@ -52,22 +51,39 @@ func (uc *CreateScanUseCase) Execute(ctx context.Context, orgID uuid.UUID, userI
 		return nil, err
 	}
 
+	// Process asynchronously so the HTTP response is returned immediately.
+	go uc.processAsync(scan.ID, req.Latitude, req.Longitude)
+
+	resp := dto.ToResponse(scan)
+	return &resp, nil
+}
+
+// processAsync runs the AI analysis in a background goroutine.
+func (uc *CreateScanUseCase) processAsync(scanID uuid.UUID, lat, lng float64) {
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+
+	scan, err := uc.scanRepo.GetByID(ctx, scanID)
+	if err != nil {
+		return
+	}
+
 	scan.Status = model.ScanStatusProcessing
 	_ = uc.scanRepo.Update(ctx, scan)
 
-	result, err := uc.callAIService(ctx, req.Latitude, req.Longitude)
+	result, err := uc.callAIService(ctx, lat, lng)
 	if err != nil {
 		scan.Status = model.ScanStatusFailed
 		scan.ErrorMessage = err.Error()
 		_ = uc.scanRepo.Update(ctx, scan)
-		return nil, domainErr.New(domainErr.ErrInternal, "AI service analysis failed", err)
+		return
 	}
 
 	if result.Error != "" {
 		scan.Status = model.ScanStatusFailed
 		scan.ErrorMessage = result.Error
 		_ = uc.scanRepo.Update(ctx, scan)
-		return nil, domainErr.New(domainErr.ErrInternal, result.Error, nil)
+		return
 	}
 
 	now := time.Now().UTC()
@@ -78,12 +94,7 @@ func (uc *CreateScanUseCase) Execute(ctx context.Context, orgID uuid.UUID, userI
 	scan.AnonymizedImageURL = result.AnonymizedImageURL
 	scan.CompletedAt = &now
 
-	if err := uc.scanRepo.Update(ctx, scan); err != nil {
-		return nil, err
-	}
-
-	resp := dto.ToResponse(scan)
-	return &resp, nil
+	_ = uc.scanRepo.Update(ctx, scan)
 }
 
 func (uc *CreateScanUseCase) callAIService(ctx context.Context, lat, lng float64) (*dto.AIAnalysisResult, error) {

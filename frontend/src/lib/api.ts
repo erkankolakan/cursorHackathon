@@ -5,6 +5,9 @@ export interface AccessibilityIssue {
   severity: "critical" | "high" | "medium" | "low";
   description: string;
   confidence: number;
+  recommendation?: string;
+  legal_reference?: string;
+  estimated_cost?: number;
 }
 
 export interface Scan {
@@ -18,7 +21,8 @@ export interface Scan {
   accessibility_score: number;
   compliance_level: string;
   issues: AccessibilityIssue[];
-  street_view_url: string;
+  street_view_url?: string;
+  anonymized_image_url?: string;
   error_message?: string;
   requested_by: string;
   created_at: string;
@@ -55,6 +59,29 @@ export interface OrgInfo {
   slug: string;
 }
 
+export interface DistrictStat {
+  district: string;
+  scan_count: number;
+  avg_score: number;
+  compliance_rate: number;
+}
+
+export interface TrendPoint {
+  date: string;
+  score: number;
+  count: number;
+}
+
+export interface OrgStats {
+  total_scans: number;
+  critical_count: number;
+  high_count: number;
+  avg_score: number;
+  compliance_rate: number;
+  district_breakdown: DistrictStat[];
+  trend_data: TrendPoint[];
+}
+
 let authToken: string | null = null;
 let orgId: string | null = null;
 
@@ -79,6 +106,15 @@ export function setOrgId(id: string) {
 export function clearOrgId() {
   orgId = null;
   if (typeof window !== "undefined") localStorage.removeItem("kentscan_org_id");
+}
+
+export function logout() {
+  authToken = null;
+  orgId = null;
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("kentscan_token");
+    localStorage.removeItem("kentscan_org_id");
+  }
 }
 
 export function loadStoredAuth() {
@@ -145,7 +181,6 @@ export async function createOrganization(name: string, slug: string): Promise<Or
   return resp.json();
 }
 
-/** Giriş sonrası token + organizasyon hazırla */
 export async function setupSession(email: string, password: string, orgIdInput?: string) {
   const session = await login(email, password);
   setAuthToken(session.token);
@@ -163,11 +198,9 @@ export async function setupSession(email: string, password: string, orgIdInput?:
   return session;
 }
 
-/** Tarama öncesi geçerli organizasyon ID'si olduğundan emin ol */
 export async function ensureOrganization(email: string, password: string) {
   loadStoredAuth();
   if (isValidUuid(orgId) && authToken) return;
-
   if (!email || !password) {
     throw new Error("Oturum süresi doldu. Lütfen çıkış yapıp tekrar giriş yapın.");
   }
@@ -184,7 +217,7 @@ export async function createScan(req: CreateScanRequest): Promise<Scan> {
   return resp.json();
 }
 
-export async function listScans(page = 1, limit = 20): Promise<PaginatedResponse<Scan>> {
+export async function listScans(page = 1, limit = 50): Promise<PaginatedResponse<Scan>> {
   const resp = await fetch(`${API_URL}/api/v1/scans?page=${page}&limit=${limit}`, {
     headers: authHeaders(),
   });
@@ -196,4 +229,29 @@ export async function getScan(id: string): Promise<Scan> {
   const resp = await fetch(`${API_URL}/api/v1/scans/${id}`, { headers: authHeaders() });
   if (!resp.ok) throw new Error("Tarama bulunamadı");
   return resp.json();
+}
+
+export async function getStats(): Promise<OrgStats> {
+  const resp = await fetch(`${API_URL}/api/v1/scans/stats`, { headers: authHeaders() });
+  if (!resp.ok) throw new Error("İstatistikler yüklenemedi");
+  return resp.json();
+}
+
+export function pollScanStatus(
+  id: string,
+  onUpdate: (scan: Scan) => void,
+  intervalMs = 2000
+): () => void {
+  const timer = setInterval(async () => {
+    try {
+      const scan = await getScan(id);
+      onUpdate(scan);
+      if (scan.status === "completed" || scan.status === "failed") {
+        clearInterval(timer);
+      }
+    } catch {
+      // ignore poll errors
+    }
+  }, intervalMs);
+  return () => clearInterval(timer);
 }

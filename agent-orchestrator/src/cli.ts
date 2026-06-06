@@ -3,6 +3,7 @@ import { loadConfig, type AppConfig } from "./config.js";
 import { AgentSession } from "./agent-runner.js";
 import { buildPlan, executePlan } from "./orchestrator.js";
 import { log } from "./logger.js";
+import { startServer } from "./server.js";
 
 /**
  * Exit kod sözleşmesi (CI dostu):
@@ -28,6 +29,7 @@ Kullanım:
   npm start <prompt>              Görevi planla ve uygula
   npm start run <prompt>          (yukarıdakiyle aynı)
   npm start models                Erişilebilir modelleri listele
+  npm start serve [port]          HTTP API server başlat (varsayılan: 4000)
   npm start help                  Bu yardımı göster
 
 Seçenekler:
@@ -57,7 +59,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     else positional.push(arg);
   }
 
-  const known = new Set(["run", "models", "help"]);
+  const known = new Set(["run", "models", "help", "serve"]);
   let command = "run";
   if (positional[0] && known.has(positional[0])) {
     command = positional.shift()!;
@@ -148,6 +150,13 @@ async function main(): Promise<number> {
 
   if (args.command === "help") {
     console.log(HELP);
+    return 0;
+  }
+
+  // HTTP server mode: npm start serve [port]
+  if (args.command === "serve") {
+    const port = parseInt(args.prompt || "4000", 10) || 4000;
+    await startServer(port);
     return 0;
   }
 

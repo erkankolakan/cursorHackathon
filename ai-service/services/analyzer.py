@@ -8,11 +8,16 @@ Kullanılan modeller:
 """
 
 import logging
-import numpy as np
+from pathlib import Path
+
 import cv2
-from typing import Optional
+import numpy as np
 
 logger = logging.getLogger("kentscan-analyzer")
+
+YOLO_REPO = "leeyunjai/yolo11-sidewalk-seg"
+YOLO_FILENAME = "yolo11m-sidewalk-seg.pt"
+YOLO_LOCAL_PATH = Path(__file__).resolve().parent.parent / "models" / YOLO_FILENAME
 
 
 class AccessibilityAnalyzer:
@@ -22,11 +27,26 @@ class AccessibilityAnalyzer:
         self._segformer = None
         self._load_models()
 
+    def _resolve_yolo_weights(self) -> str:
+        if YOLO_LOCAL_PATH.is_file():
+            return str(YOLO_LOCAL_PATH)
+
+        from huggingface_hub import hf_hub_download
+
+        logger.info("YOLO weights not found locally, downloading from HuggingFace...")
+        return hf_hub_download(
+            repo_id=YOLO_REPO,
+            filename=YOLO_FILENAME,
+            local_dir=str(YOLO_LOCAL_PATH.parent),
+        )
+
     def _load_models(self):
         try:
             from ultralytics import YOLO
-            logger.info("Loading YOLO11 sidewalk-seg model from HuggingFace...")
-            self._yolo_model = YOLO("leeyunjai/yolo11-sidewalk-seg")
+
+            weights_path = self._resolve_yolo_weights()
+            logger.info("Loading YOLO11 sidewalk-seg model from %s", weights_path)
+            self._yolo_model = YOLO(weights_path)
             logger.info("YOLO11 model loaded successfully")
         except Exception as e:
             logger.warning(f"YOLO11 model not available: {e} — using heuristic fallback")

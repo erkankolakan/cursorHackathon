@@ -57,10 +57,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="agent"
         options={{
-          title: 'Agent',
+          title: 'Saha Denetim',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'sparkles' : 'sparkles-outline'}
+              name={focused ? 'accessibility' : 'accessibility-outline'}
               size={24}
               color={color}
             />
